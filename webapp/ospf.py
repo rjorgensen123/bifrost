@@ -1,20 +1,22 @@
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.0
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.0
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """
-G-160 «logisk kart» (OSPF) — selv-byggende logisk (L3) topologi.
+Logical maps (OSPF): a layer-3 topology that builds itself.
 
-Konsept: routerne vi alt har i `host` kjenner via OSPF sin egen logiske topologi.
-Vi spør hver router (OSPF-MIB) om naboer, cost og area, parer naboen mot loopback-IP-en
-vi alt har (`host.address`), og bygger et logisk kart som tegner seg selv.
+The routers already in `host` know their own logical topology through OSPF. Each router is asked
+(OSPF-MIB) for its neighbours, cost and area; a neighbour is matched to the loopback address already
+known (`host.address`), and the result is drawn as a logical map.
 
-To lag (se spec-logisk-kart-1.4.0.md i prosjektroten):
-  Lag 1 — oppdaget topologi: `ospf.node` / `ospf.adjacency` / `ospf.run` (upsertes idempotent).
-  Lag 2 — tegnede kart: ett `composer.map kind='logical'` pr. area, noder i `ospf.map_node`
-          (layout bevart på tvers av ombygginger via reconcile).
+Two layers:
+  Layer 1, the discovered topology: `ospf.node`, `ospf.adjacency` and `ospf.run`, upserted.
+  Layer 2, the drawn maps: one `composer.map` with kind='logical' per area, plus custom logical maps
+          with chosen routers; their nodes are in `ospf.map_node`, and the layout is kept across
+          rebuilds (reconcile).
 
-OSPFv2 nå; v3-klar via collector-abstraksjonen + `proto`-feltet. Alt idempotent (no-destructive):
-discovery upserter + rydder kun det som ikke ble sett i kjøringen; reconcile beholder
-posisjon/pinning og legger til/fjerner noder.
+OSPFv2 by default; an OSPFv3 collector with the same record form runs when the setting ospf_proto is
+v3 or both. Everything is idempotent: discovery upserts and removes only what was not seen in the run
+(a host that does not answer keeps its side of each link, and nothing is deleted when no adjacency
+was seen at all); reconcile keeps positions and pins and adds or removes nodes.
 """
 import asyncio
 import ipaddress

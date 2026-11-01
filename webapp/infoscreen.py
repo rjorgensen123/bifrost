@@ -1,18 +1,18 @@
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.8
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.0
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """
-G-193 «infoscreen» / NOC-kiosk — flere navngitte infoskjermer som roterer mellom utvalgte
-visninger (slides) i en evig loop, tilgjengelig på en unik, ugjettbar token-URL UTEN innlogging.
+Info screens (NOC kiosk): named screens that rotate through chosen slides in an endless loop, on a
+unique, unguessable token URL without login.
 
-Design: spec-infoscreen-g193.md i prosjektroten. Kjernepunkter:
-  * GENERISK: en `composer.infoscreen` (navn + 12-tegns token) + ordnede `composer.infoscreen_slide`
-    ({kind, ref, caption, duration_sec}). slide.kind dispatcher til riktig ANONYM render.
-  * WHAT v1: fysiske kart + kategori-grafer (Internett/Backbone/Fordeling). Logiske kart senere.
-  * HOW: hvert bilde har egen visetid, evig loop, auto-refresh mens det vises.
-  * Tilgang: token-URL er HELT anonym (NOC-skjerm) — token = tilgang, regenererbar for tilbakekalling.
-    En token ser KUN sin egen infoscreens slides (whitelist), aldri noe annet.
-
-Alt idempotent / ikke-destruktivt (no-destructive): CRUD med eksplisitte admin-handlinger.
+  * A screen is a composer.infoscreen row (name + 12-character token) with ordered
+    composer.infoscreen_slide rows (kind, ref, caption, duration_sec). The slide kind picks the
+    anonymous view: a physical map, or a graph from the category catalogue (Internet, Backbone, a role
+    group or a customer).
+  * Each slide has its own display time (2–300 s), and the slide being shown is reloaded every round.
+  * The token URL is fully anonymous: the token is the access, and a new token revokes the old one.
+    A token sees only its own screen's slides, nothing else.
+  * Setting up screens is for operators and admins; changing a screen needs write on it (operators
+    have it by default, and it can be taken away per screen).
 """
 import logging
 import secrets

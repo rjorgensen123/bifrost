@@ -1,15 +1,15 @@
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.3
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.0
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """
-Passkey/WebAuthn (2.1.0, Gitea #14) — auth-metode i den LOKALE bakenden fra 2.0.0.
+Passkeys (WebAuthn): a sign-in method for local users.
 
-Modell (spec-v2.1.0-passkey.md): brukernavn-løs hovedflyt (discoverable/resident keys),
-uv=preferred (biometri/PIN opp til enheten), valgfritt for alle roller, ALDRI for
-break-glass-admin (kun app_user-koblede credentials). Synkede nøkler (iCloud/Google)
-støttes fullt — backup-flaggene lagres for merkelappen på Min side. last_used_at driver
-«gammel»-markeringen (>180 d, M3). Helt in-house: py-webauthn er et lokalt bibliotek,
-ingen ekstern tjeneste. Sign-count sjekkes monotont der teller finnes (synkede
-plattform-nøkler rapporterer ofte 0 — da er sjekken nøytral).
+The main flow needs no username (discoverable credentials); user verification is preferred, so
+biometrics or a PIN is up to the device. Passkeys are optional for every role and never available to
+the break-glass admin: a credential always belongs to an app_user. Synced passkeys (iCloud, Google)
+work fully, and their backup flags are stored for the label on My page. A passkey not used for 180
+days is marked as old. Everything runs locally with the py-webauthn library, with no external
+service. The signature counter must increase where the authenticator has one; synced passkeys often
+report 0, and then the check is neutral.
 """
 import json
 import logging

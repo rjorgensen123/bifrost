@@ -1,25 +1,25 @@
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.3
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.0
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """
-Sentralt ACL-register (2.0.0, G-285) — ÉN plass alle features spør om tilgang.
+The central access register: every feature asks here for access.
 
-Modell (spec-v2.0.0-grupper-acl.md i prosjektroten):
-  - ALL tilgang henger på GRUPPE (aldri enkeltbruker); én bruker = nøyaktig én gruppe.
-  - Systemgrupper (kan ikke slettes/endres): brukere (deny) / operatør (read) / admin (full).
-    Custom-grupper (skjult UI i 2.0.0) velger baseline deny|read — ALDRI write/full.
-  - acl_entry(gruppe, objekt-type, objekt-id, perm none|read|write) er både grant-opp
-    (brukere/custom får read; custom/operatør får write på enkeltobjekt) og vekk-valg
-    (perm 'none'/'read' overstyrer gruppens baseline NEDOVER på ett objekt).
-  - Break-glass-admin (delt admin-passord, session['admin']) er utenom alt — alltid full.
+Model:
+  - All access hangs on a group, never on a single user; a user belongs to exactly one group.
+  - System groups (cannot be deleted or changed): brukere (deny), operatør (read), admin (full).
+    Custom groups pick the baseline deny or read, never write or full. They are hidden in the user
+    interface (shown only with BIFROST_CUSTOM_GROUPS=1) and are to be phased out.
+  - acl_entry(group, object type, object id, perm none|read|write) both grants access upwards and
+    takes it away: 'none' or 'read' overrides the group's baseline downwards for one object.
+  - The break-glass admin (shared admin password, session['admin']) is outside all of this: always full.
 
-Effektiv tilgang — første treff vinner (E-reglene i spec'en):
-  E1  admin (break-glass ELLER baseline full)  -> read/write, alltid
-  E2  hard operatør-sone (object_type='feature') -> kun baseline read/full; IKKE grantbar
-  E3  låst kart                                 -> maks read for alle utenom admin
-  E4  acl_entry for (gruppe, objekt)            -> none/read/write
-  E5  gruppens baseline (+ type-default: read-baseline har write-default på infoscreen)
+Effective access, first match wins:
+  E1  admin (break-glass or baseline full)       -> read/write, always
+  E2  hard operator zone (object_type='feature') -> baseline read/full only; cannot be granted
+  E3  locked map                                 -> at most read for everyone but admin
+  E4  acl_entry for (group, object)              -> none/read/write
+  E5  the group's baseline (+ type default: a read baseline has write on info screens)
 
-Ingen Flask-avhengighet i beslutningskjernen (_decide) — den er ren og enhetstestes uten DB.
+The decision core (_decide) has no Flask dependency; it is pure and unit-tested without a database.
 """
 try:
     from flask import g, session

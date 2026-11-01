@@ -1,7 +1,7 @@
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.0.0
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.0
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Enhetstester for ACL-beslutningskjernen (acl._decide) — ren logikk, ingen DB.
-Dekker E-regel-matrisen fra spec-v2.0.0-grupper-acl.md §3."""
+"""Unit tests for the access decision core (acl._decide): pure logic, no database.
+Covers the E1–E5 rules described in acl.py."""
 import os
 import sys
 import unittest
@@ -47,7 +47,7 @@ class TestDecide(unittest.TestCase):
         self.assertTrue(d("read", OT_MAP, "5", baseline="read", locked=True))
         self.assertTrue(d("read", OT_MAP, "5", baseline="deny", entry="read", locked=True))
 
-    # --- brukere-gruppen: write UMULIG (spec §2.5 / Roger: «det er umulig») ---
+    # --- the brukere group: write is impossible ---
     def test_brukere_write_umulig(self):
         self.assertFalse(d("write", OT_MAP, "1", baseline="deny", is_brukere=True, entry="write"))
         self.assertFalse(d("write", OT_INFOSCREEN, "1", baseline="deny", is_brukere=True, entry="write"))
