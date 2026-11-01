@@ -10,8 +10,8 @@ how much goes over paid transit compared with peering, how one customer or excha
 developing, where the network is filling up, and which path traffic takes.
 
 > **Getting started:** installation, configuration, upgrades and backup/restore are covered in the
-> [README](https://git.nordfiber.no/Nordfiber/bifrost/src/branch/main/README.md).
-> Source code: [repository](https://git.nordfiber.no/Nordfiber/bifrost).
+> [README](https://github.com/rjorgensen123/bifrost/blob/main/README.md).
+> Source code: [repository](https://github.com/rjorgensen123/bifrost).
 
 ## How it fits together
 
@@ -167,9 +167,9 @@ Unencrypted backups are possible, but only if you ask for them explicitly. See t
 
 ## Further reading
 
-- [README](https://git.nordfiber.no/Nordfiber/bifrost/src/branch/main/README.md): installation,
+- [README](https://github.com/rjorgensen123/bifrost/blob/main/README.md): installation,
   configuration, upgrades, backup and restore.
-- [GUI recipe](https://git.nordfiber.no/Nordfiber/bifrost/wiki/bifrost-gui-oppskrift): how the calm,
+- [GUI recipe](https://github.com/rjorgensen123/bifrost/blob/main/docs/bifrost-gui-oppskrift.md): how the calm,
   readable interface is built — a handful of principles, design tokens and components. It is written as
   an example you can reuse in other projects.
 - The repository's `docs/` folder also has a complete colour theme (`theme.example.css`) and an nginx

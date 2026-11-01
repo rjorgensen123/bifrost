@@ -1,5 +1,10 @@
 # Bifrost  (v2.5.0)
 
+> **This repository is a mirror.** Development happens elsewhere and is pushed here;
+> every sync overwrites what is here, so a pull request cannot be merged and a commit
+> made here is lost. Issues are read — see [CONTRIBUTING.md](CONTRIBUTING.md) for the
+> form a change has to arrive in, and [SECURITY.md](SECURITY.md) for vulnerabilities.
+
 Bifrost is SNMP-based traffic monitoring for edge, peering and transit networks. It polls interface
 counters every 5 minutes, stores the raw counters in PostgreSQL with TimescaleDB, and computes rates
 when a graph is drawn. It shows how much traffic you exchange and with whom, where the network is
@@ -13,14 +18,14 @@ stay off the maps and the Distribution page.
 
 The user interface is in Norwegian or English: the installation's language is set under Settings, and each
 user can choose their own on My page. This README uses the English labels with the Norwegian label in
-brackets, e.g. "Settings (Innstillinger)". Source code: https://git.nordfiber.no/Nordfiber/bifrost
+brackets, e.g. "Settings (Innstillinger)". Source code: https://github.com/rjorgensen123/bifrost
 
 ## Quick start
 
 You need Docker with the Compose plugin.
 
 ```bash
-git clone https://git.nordfiber.no/Nordfiber/bifrost && cd bifrost
+git clone https://github.com/rjorgensen123/bifrost && cd bifrost
 cp .env.example .env && chmod 600 .env   # the file holds passwords
 # edit .env: set DB_PASSWORD now (Postgres stores it when the data volume is created)
 docker compose up -d --build
@@ -219,7 +224,7 @@ is checked first, so a wrong passphrase or a damaged file stops cleanly with the
 **Moving to a new server:** take a backup on the old server, then on the new one (same Bifrost version):
 
 ```bash
-git clone https://git.nordfiber.no/Nordfiber/bifrost && cd bifrost
+git clone https://github.com/rjorgensen123/bifrost && cd bifrost
 git checkout <same version as the old server>
 mkdir -p backup && scp 'old-server:/path/to/bifrost/backup/*' backup/
 # restore.sh does not restore .env; decrypt the copy first (it asks for the passphrase):
