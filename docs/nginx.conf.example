@@ -1,0 +1,104 @@
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.5
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Example: nginx terminates HTTPS and proxies to Bifrost over plain HTTP.
+#
+# - Port 8123 below must match PORT in .env (the host port docker compose publishes).
+# - Adjust server_name and the certificate paths.
+#
+# Keep the app port off the network. docker-compose.yml publishes it on all
+# interfaces ("${PORT:-8123}:8123"), and Docker's port rules can bypass host
+# firewalls such as ufw. With nginx on the same host, publish it on loopback only:
+#     ports:
+#       - "127.0.0.1:${PORT:-8123}:8123"
+# or block the port from outside by other means.
+#
+# Related settings in .env:
+#   PROXY_COUNT      Number of proxy hops in front of the app whose X-Forwarded-*
+#                    headers are trusted. Default 1 = this nginx. With one more hop
+#                    (CDN -> nginx -> Bifrost) set 2. No proxy at all: 0, and
+#                    X-Forwarded-* from clients is ignored.
+#   TRUSTED_PROXIES  Comma-separated CIDRs. The client address from X-Forwarded-For
+#                    (used for login throttling, rate limits and session records) is
+#                    only trusted when the direct peer is in this list; otherwise the
+#                    peer's own address is used. The default (private ranges and
+#                    loopback) covers nginx on the same host or in Docker. If nginx
+#                    runs on another host with an address outside those ranges, set it,
+#                    e.g. TRUSTED_PROXIES=203.0.113.10/32. Setting it replaces the default.
+#   MAX_UPLOAD_MB    Upload limit in the app (default 20). Keep client_max_body_size
+#                    a little above it.
+
+server {
+    listen 80;
+    server_name bifrost.example.org;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    http2 on;                      # nginx 1.25.1+; older versions: "listen 443 ssl http2;"
+    server_name bifrost.example.org;
+
+    ssl_certificate     /etc/letsencrypt/live/bifrost.example.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/bifrost.example.org/privkey.pem;
+
+    # Optional: tell browsers to use HTTPS only. Enable once HTTPS works for good;
+    # browsers remember it for max-age seconds.
+    # add_header Strict-Transport-Security "max-age=31536000" always;
+
+    # --- Normal case: Bifrost at the root (https://bifrost.example.org/) -----
+    location / {
+        proxy_pass         http://127.0.0.1:8123;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;   # lets the app see HTTPS (secure cookie, redirects)
+
+        # Uploads (logo, theme, map background image). nginx's default is 1 MB;
+        # keep this a little above MAX_UPLOAD_MB.
+        client_max_body_size 25m;
+
+        # Some requests take a while: map background snapshots (up to about 90 s)
+        # and SNMP discovery of slow devices. nginx's default of 60 s would cut
+        # them off; the app's gunicorn allows 120 s.
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+    }
+
+    # /healthz answers without login (JSON with name, version and status).
+    # A separate location is only needed for different rules, e.g. no access log.
+    location = /healthz {
+        proxy_pass http://127.0.0.1:8123/healthz;
+        access_log off;
+    }
+}
+
+# ===========================================================================
+# VARIANT: Bifrost under a path prefix, e.g. https://example.org/bifrost/
+#
+# The app can live under any path, but two things must be right:
+#   1) The trailing slash in `proxy_pass .../;` STRIPS the prefix, so the app
+#      sees /view, /static/... and so on (not /bifrost/view).
+#   2) `X-Forwarded-Prefix` tells the app what the prefix was, so all links,
+#      redirects and static files get /bifrost/ in front.
+# The app handles 2) itself (ProxyFix); no code change is needed.
+#
+# Add this to an existing server { } block:
+#
+#     # /bifrost without a slash -> /bifrost/ (otherwise the location does not match)
+#     location = /bifrost { return 301 /bifrost/; }
+#
+#     location /bifrost/ {
+#         proxy_pass         http://127.0.0.1:8123/;     # trailing slash = strip prefix
+#         proxy_set_header   Host               $host;
+#         proxy_set_header   X-Forwarded-For    $proxy_add_x_forwarded_for;
+#         proxy_set_header   X-Forwarded-Proto  $scheme;
+#         proxy_set_header   X-Forwarded-Prefix /bifrost;   # <-- the key
+#         client_max_body_size 25m;
+#         proxy_read_timeout   120s;
+#         proxy_send_timeout   120s;
+#     }
+#
+# Most common mistakes (404 or "no response"):
+#   - missing trailing slash in proxy_pass -> the app sees /bifrost/view -> 404
+#   - missing X-Forwarded-Prefix          -> links and static files point at the root
+# ===========================================================================

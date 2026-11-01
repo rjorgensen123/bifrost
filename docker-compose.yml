@@ -1,0 +1,109 @@
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v1.8.1
+# SPDX-License-Identifier: AGPL-3.0-or-later
+services:
+  db:
+    # G-259: bumpet 2.17.2 → 2.28.0. SQL-extensionen oppgraderes automatisk ved boot
+    # (db.py ensure_timescaledb_uptodate kjører `ALTER EXTENSION timescaledb UPDATE`).
+    # NB ved deploy på et eksisterende volum: TA BACKUP FØRST (engangs, ikke-destruktiv
+    # men irreversibel SQL-migrering; kort sesjonsforstyrrelse under oppgraderingen).
+    image: timescale/timescaledb:2.28.0-pg16
+    # Eksplisitte minneparametre. -c vinner over postgresql.conf, så dette
+    # gjelder også på et allerede initialisert volum (timescaledb-tune re-tuner
+    # ikke eksisterende volumer). Dimensjonert for en liten arbeidsmengde.
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=timescaledb
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - effective_cache_size=384MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - max_connections=30
+      - -c
+      - max_wal_size=512MB
+      - -c
+      - max_worker_processes=16
+      - -c
+      - timescaledb.max_background_workers=8
+      - -c
+      - log_timezone=Europe/Oslo
+      - -c
+      - "log_line_prefix=%t [%p] "
+    environment:
+      POSTGRES_USER: bifrost
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-bifrost}
+      POSTGRES_DB: bifrost
+      TS_TUNE_MEMORY: 512MB      # gjelder kun ved FØRSTE init (ferskt volum)
+      TS_TUNE_NUM_CPUS: "2"
+      TZ: Europe/Oslo
+    volumes:
+      - tsdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bifrost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    restart: unless-stopped
+
+  webapp:
+    build: ./webapp
+    env_file: .env          # G-242: env-var i .env (COOKIE_SECURE, MAX_UPLOAD_MB, USER_MAX_DAYS,
+                            # SCRATCH/DRAFT/LOG-retention, MAP_SOURCE*, LSP_REBUILD) når nå faktisk containeren
+    environment:
+      DATABASE_URL: postgresql://bifrost:${DB_PASSWORD:-bifrost}@db:5432/bifrost
+      DB_CONNECT_TIMEOUT: ${DB_CONNECT_TIMEOUT:-5}
+      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-30000}
+      PROXY_COUNT: ${PROXY_COUNT:-1}
+      SECRET_KEY: ${SECRET_KEY:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-soon}
+      ADMIN_IDLE_MIN: ${ADMIN_IDLE_MIN:-0}
+      ADMIN_MAX_HOURS: ${ADMIN_MAX_HOURS:-18}
+      OSPF_REBUILD_INTERVAL: ${OSPF_REBUILD_INTERVAL:-86400}
+      MOCK_OSPF: ${MOCK_OSPF:-0}
+      DEMO_MODE: ${DEMO_MODE:-0}
+      OUR_NAME: ${OUR_NAME:-Network}
+      OUR_ASN: ${OUR_ASN:-AS65432}
+      TZ: Europe/Oslo
+    ports:
+      - "${PORT:-8123}:8123"
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    restart: unless-stopped
+
+  poller:
+    build: ./poller
+    env_file: .env          # G-242: som webapp — .env-var (SNMP_TIMEOUT/RETRIES m.fl.) når containeren
+    environment:
+      DATABASE_URL: postgresql://bifrost:${DB_PASSWORD:-bifrost}@db:5432/bifrost
+      DB_CONNECT_TIMEOUT: ${DB_CONNECT_TIMEOUT:-5}
+      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-30000}
+      RESCAN_INTERVAL: ${RESCAN_INTERVAL:-86400}
+      RESCAN_HOURS: ${RESCAN_HOURS:-}
+      DEMO_MODE: ${DEMO_MODE:-0}
+      TZ: Europe/Oslo
+    depends_on:
+      db:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    restart: unless-stopped
+
+volumes:
+  tsdata:

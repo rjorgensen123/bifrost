@@ -1,0 +1,119 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('logical.maps') }}{% endblock %}
+{% block body %}
+{% if err %}<p class="err">{{ err }}</p>{% endif %}
+
+{# G-192: nytt custom logisk kart — velg routere (samme stil som fysisk host-velger). #}
+{% if can_create %}
+<section class="card">
+  <h2>{{ t('logical.new') }} <span class="sub">{{ t('logical.new_sub') }}</span></h2>
+  {% if routers %}
+  <form method="post" action="{{ url_for('ospf.custom_map_create') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row"><input name="name" placeholder="{{ t('logical.ph_name') }}" required class="bf-minw-240px"></div>
+    <p class="hint">{{ t('logical.new_hint') }}</p>
+    {% set known = routers|rejectattr('ghost')|list %}
+    {% set ghosts = routers|selectattr('ghost')|list %}
+    <div class="host-pick" id="router-pick">
+      {% for r in known %}
+      <label><input type="checkbox" name="router_ids" value="{{ r.router_id }}" class="router-cb"> {{ r.label }}</label>
+      {% endfor %}
+      <label class="pick-all"><input type="checkbox" id="router-pick-all"> <b>{{ t('maps.pick_all') }}</b></label>
+      {% if ghosts %}
+      <hr class="bf-gc-1-1 bf-w-100pct bf-b-none bf-bt-1px-solid-line bf-m-_3rem-0">
+      <div class="hint bf-gc-1-1">{{ t('logical.ghost_routers') }}</div>
+      {% for r in ghosts %}
+      <label><input type="checkbox" name="router_ids" value="{{ r.router_id }}" class="router-cb"> {{ r.label }} <span class="hint">(ghost)</span></label>
+      {% endfor %}
+      {% endif %}
+    </div>
+    <button type="submit">{{ t('logical.create') }}</button>
+    <script nonce="{{ csp_nonce }}">
+      document.getElementById("router-pick-all").addEventListener("change", function(e){
+        document.querySelectorAll("#router-pick .router-cb").forEach(c => c.checked = e.target.checked);
+      });
+    </script>
+  </form>
+  {% else %}
+  <p class="hint">{{ t('logical.no_routers') }}</p>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>{{ t('logical.maps') }} <span class="sub">{{ t('logical.maps_sub') }}</span></h2>
+  {% if maps %}
+  <table class="iface-table">
+    <thead><tr><th>{{ t('account.col_name') }}</th><th>{{ t('iface.col_status') }}</th><th>{{ t('maps.col_nodes') }}</th><th>{{ t('account.col_created') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for m in maps %}
+      <tr>
+        <td><a href="{{ url_for('ospf.view_map', map_id=m.id) }}">{{ m.name }}</a></td>
+        <td class="mono">{% if m.status == 'published' %}🟢 {{ t('maps.status_published') }}{% elif m.status == 'archived' %}⚪ {{ t('maps.status_archived') }}{% else %}🟡 {{ t('maps.status_draft') }}{% endif %}</td>
+        <td class="mono">{{ m.nodes }}</td>
+        <td class="mono">{{ m.created_at|apptime('%Y-%m-%d %H:%M') }}</td>
+        {% if can_create %}
+        <td class="right">
+          <div class="map-actions">
+            <span class="ag">{# vis/endre #}
+              <a class="ghost sm" href="{{ url_for('ospf.view_map', map_id=m.id) }}">{{ t('maps.open') }}</a>
+              {% if m.can_edit %}
+              <a class="ghost sm" href="{{ url_for('ospf.view_map', map_id=m.id) }}">{{ t('common.edit') }}</a>
+              <button class="ghost sm" type="button" data-rename-url="{{ url_for('ospf.map_rename', map_id=m.id) }}"
+                      data-name="{{ m.name }}" title="{{ t('maps.rename_title') }}">{{ t('maps.rename') }}</button>
+              {% endif %}
+            </span>
+            <span class="ag-sep"></span>
+            <span class="ag">{# tilstand/livssyklus #}
+              {% if m.can_edit and m.status != 'published' %}
+              <button class="ghost sm" hx-post="{{ url_for('ospf.map_publish', map_id=m.id) }}" hx-target="body" title="{{ t('maps.publish_title') }}">{{ t('maps.publish') }}</button>
+              {% endif %}
+              {% if m.can_edit and m.status == 'published' %}
+              <button class="ghost sm" hx-post="{{ url_for('ospf.map_park', map_id=m.id) }}" hx-target="body" title="{{ t('maps.park_title') }}">{{ t('maps.park') }}</button>
+              {% endif %}
+              {% if real_admin %}{% if m.status != 'archived' %}
+              <button class="ghost sm" hx-post="{{ url_for('ospf.map_archive', map_id=m.id) }}" hx-target="body" hx-confirm="{{ t('logical.archive_confirm', name=m.name) }}">{{ t('maps.archive') }}</button>
+              {% else %}
+              <button class="ghost sm" hx-post="{{ url_for('ospf.map_restore', map_id=m.id) }}" hx-target="body" title="{{ t('maps.restore_title') }}">{{ t('common.restore') }}</button>
+              {% endif %}{% endif %}
+            </span>
+            {% if real_admin %}<button class="ghost sm danger ag-del" hx-post="{{ url_for('ospf.map_delete', map_id=m.id) }}" hx-target="body"
+                    data-confirm-delete="{{ t('logical.delete_confirm', name=m.name) }}">{{ t('common.delete') }}</button>{% endif %}
+          </div>
+        </td>
+        {% endif %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="hint">{{ t('logical.none') }}</p>{% endif %}
+</section>
+
+{% if can_create %}
+{# G-192: «Endre navn» fra lista — prompt → POST rename (CSRF via global fetch-wrapper) → reload. #}
+<script nonce="{{ csp_nonce }}">
+(function () {
+  document.querySelectorAll("[data-rename-url]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var cur = b.dataset.name || "";
+      var v = window.prompt({{ t('maps.rename_prompt')|tojson }}, cur);
+      if (v === null) return;
+      var name = v.trim();
+      if (!name || name === cur) return;
+      fetch(b.dataset.renameUrl, { method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ name: name }) })
+        .then(function (r) {
+          if (r.ok) { location.reload(); return; }
+          return r.json().catch(function () { return {}; })
+            .then(function (d) { alert(d.msg || {{ t('maps.rename_failed')|tojson }}); });
+        })
+        .catch(function () { alert({{ t('common.network_error')|tojson }}); });
+    });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

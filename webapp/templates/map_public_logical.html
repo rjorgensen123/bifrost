@@ -1,0 +1,47 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{# G-183: public-versjon av det LOGISKE kartet — frittstående NOC-side (ikke base.html),
+   rendret med den DELTE kart-kjernen (map_renderer.js + map_logical.js + ospf_map.js) i
+   read-only public-modus. viewBox + height:100vh → hele kartet skalerer til skjermen
+   (mobil → 100" NOC). #}
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta http-equiv="refresh" content="300">   {# auto-oppdater (plukker opp ny OSPF-bygging) #}
+  <title>{{ data.name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  {# G-85/G-135: public-siden er frittstående — emitt org-temaet (validerte DB-tokens) her også. #}
+  {% if theme_css %}<style nonce="{{ csp_nonce }}">{{ theme_css }}</style>{% endif %}
+  <style nonce="{{ csp_nonce }}">
+    html,body{margin:0;height:100%;background:{{ (data.background or '#0d132d')|e }}}
+    #ospf-wrap{position:relative;width:100%;height:100vh}
+    #ospf-canvas{width:100%;height:100%;display:block}
+    .pub-title{position:absolute;top:8px;left:12px;color:var(--ink);
+               font:600 14px/1.3 "Inter",system-ui,sans-serif;opacity:.85}
+  </style>
+  {% include "_i18n.html" %}
+</head>
+<body>
+  <div id="ospf-wrap">
+    <div class="pub-title">{{ data.name }}</div>
+    {# G-155: samme copyright-linje som footeren på alle andre sider (public arver ikke base.html). #}
+    <div class="bf-pos-absolute bf-bottom-6px bf-left-12px bf-font-600-12px-1_3-system-ui-sans-serif bf-c-muted bf-op-_8 bf-z-5">
+      Bifrost · {{ t('footer.rights') }} · © {{ year }} Roger Jorgensen · <a href="mailto:rogerj@gmail.com">rogerj@gmail.com</a></div>
+    <svg id="ospf-canvas" viewBox="0 0 {{ data.width }} {{ data.height }}"
+         preserveAspectRatio="xMidYMid meet"
+         role="img" aria-label="{{ t('public.logical_aria', name=data.name) }}"
+         data-is-admin="0" data-public="1"></svg>
+    <div id="ospf-tip" class="map-tip"></div>
+  </div>
+  {# Topologi-data leses av ospf_map.js (samme kontrakt som /logical). #}
+  <script id="ospf-data" type="application/json" nonce="{{ csp_nonce }}">{{ data|tojson }}</script>
+  {# fase 2: live-bakgrunns-fliser (delt m/ fysisk) — før kjernen. #}
+  <script src="{{ url_for('static', filename='bg_live.js') }}" nonce="{{ csp_nonce }}"></script>
+  <script src="{{ url_for('static', filename='map_renderer.js') }}" nonce="{{ csp_nonce }}"></script>
+  <script src="{{ url_for('static', filename='map_logical.js') }}" nonce="{{ csp_nonce }}"></script>
+  <script src="{{ url_for('static', filename='ospf_map.js') }}" nonce="{{ csp_nonce }}"></script>
+</body>
+</html>

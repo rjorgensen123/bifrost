@@ -1,0 +1,119 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('nav.maps') }}{% endblock %}
+{% block body %}
+{% if err %}<p class="err">{{ err }}</p>{% endif %}
+<section class="card accent">
+  <h2>{{ t('maps.auto') }} <span class="sub">{{ t('maps.auto_sub') }}</span></h2>
+  <form class="row" method="post" action="{{ url_for('maps.create_auto_map') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input name="name" placeholder="{{ t('maps.ph_name_optional') }}" class="bf-minw-220px">
+    <button type="submit">{{ t('maps.auto_create') }}</button>
+  </form>
+  <p class="hint">{{ t('maps.auto_hint') }}</p>
+</section>
+
+<section class="card">
+  <h2>{{ t('maps.manual') }} <span class="sub">{{ t('maps.manual_sub') }}</span></h2>
+  {% if hosts %}
+  <form method="post" action="{{ url_for('maps.create_map') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row"><input name="name" placeholder="{{ t('maps.ph_name_example') }}" required class="bf-minw-240px"></div>
+    <div class="host-pick" id="host-pick">
+      {% for h in hosts %}
+      <label><input type="checkbox" name="host_ids" value="{{ h.id }}" class="host-cb"> {{ h.name }}</label>
+      {% endfor %}
+      <label class="pick-all"><input type="checkbox" id="pick-all-cb"> <b>{{ t('maps.pick_all') }}</b></label>
+    </div>
+    <button type="submit">{{ t('maps.create') }}</button>
+    <script nonce="{{ csp_nonce }}">
+      document.getElementById("pick-all-cb").addEventListener("change", function(e){
+        document.querySelectorAll("#host-pick .host-cb").forEach(c => c.checked = e.target.checked);
+      });
+    </script>
+  </form>
+  {% else %}
+  <p class="hint">{{ t('maps.no_hosts') }}</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>{{ t('nav.maps') }}</h2>
+  {% if maps %}
+  <table class="iface-table">
+    <thead><tr><th>{{ t('account.col_name') }}</th><th>{{ t('iface.col_status') }}</th><th>{{ t('maps.col_nodes') }}</th><th>{{ t('account.col_created') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for m in maps %}
+      <tr>
+        <td><a href="{{ url_for('maps.view_map', map_id=m.id) }}">{{ m.name }}</a></td>
+        <td class="mono">{% if m.status == 'published' %}🟢 {{ t('maps.status_published') }}{% elif m.status == 'archived' %}⚪ {{ t('maps.status_archived') }}{% else %}🟡 {{ t('maps.status_draft') }}{% endif %}{% if m.has_draft %} <span class="hint" title="{{ t('maps.has_draft_title') }}">✎ {{ t('maps.status_draft') }}</span>{% endif %}{% if m.locked_at %} <span class="tag" title="{{ t('maps.locked_by_title', who=m.locked_by or 'admin') }}">🔒</span>{% endif %}</td>
+        <td class="mono">{{ m.nodes }}</td>
+        <td class="mono">{{ m.created_at|apptime('%Y-%m-%d %H:%M') }}</td>
+        <td class="right">
+          <div class="map-actions">
+            <span class="ag">{# vis/endre #}
+              <a class="ghost sm" href="{{ url_for('maps.view_map', map_id=m.id) }}">{{ t('maps.open') }}</a>
+              {% if m.can_edit %}
+              <a class="ghost sm" href="{{ url_for('maps.edit_map', map_id=m.id) }}">{{ t('common.edit') }}</a>
+              {# G-190: endre kartnavn direkte fra lista (var her tidligere; inline-omdøp i editoren erstatter den ikke). #}
+              <button class="ghost sm" type="button" data-rename-url="{{ url_for('maps.rename_map', map_id=m.id) }}"
+                      data-name="{{ m.name }}" title="{{ t('maps.rename_title') }}">{{ t('maps.rename') }}</button>
+              <a class="ghost sm" href="{{ url_for('maps.map_versions', map_id=m.id) }}" title="{{ t('maps.versions_title') }}">{{ t('maps.versions') }}</a>
+              {% endif %}
+            </span>
+            <span class="ag-sep"></span>
+            <span class="ag">{# tilstand/livssyklus #}
+              {% if m.can_edit and m.status != 'published' %}
+              <button class="ghost sm" hx-post="{{ url_for('maps.publish_map', map_id=m.id) }}" hx-target="body" title="{{ t('maps.publish_title') }}">{{ t('maps.publish') }}</button>
+              {% endif %}
+              {% if m.can_edit and m.status == 'published' %}
+              <button class="ghost sm" hx-post="{{ url_for('maps.park_map', map_id=m.id) }}" hx-target="body" title="{{ t('maps.park_title') }}">{{ t('maps.park') }}</button>
+              {% endif %}
+              {# lik bredde på Lås/Lås opp — ulik tekstbredde forskjøv ikon-raden (felttest) #}
+              {% if is_admin %}{% if m.locked_at %}
+              <button class="ghost sm bf-minw-6_4em" hx-post="{{ url_for('maps.unlock_map_route', map_id=m.id) }}" hx-target="body" title="{{ t('maps.unlock_title') }}">🔓 {{ t('maps.unlock') }}</button>
+              {% else %}
+              <button class="ghost sm bf-minw-6_4em" hx-post="{{ url_for('maps.lock_map_route', map_id=m.id) }}" hx-target="body" title="{{ t('maps.lock_title') }}">🔒 {{ t('maps.lock') }}</button>
+              {% endif %}{% endif %}
+              {% if m.can_edit %}{% if m.status != 'archived' %}
+              <button class="ghost sm" hx-post="{{ url_for('maps.archive_map', map_id=m.id) }}" hx-target="body" hx-confirm="{{ t('maps.archive_confirm', name=m.name) }}">{{ t('maps.archive') }}</button>
+              {% else %}
+              <button class="ghost sm" hx-post="{{ url_for('maps.restore_map', map_id=m.id) }}" hx-target="body" title="{{ t('maps.restore_title') }}">{{ t('common.restore') }}</button>
+              {% endif %}{% endif %}
+            </span>
+            {# Slett: destruktiv — dyttet helt til høyre, egen dobbel-bekreftelse (default Avbryt, se ui.js) #}
+            {% if is_admin %}<button class="ghost sm danger ag-del" hx-post="{{ url_for('maps.delete_map', map_id=m.id) }}" hx-target="body"
+                    data-confirm-delete="{{ t('maps.delete_confirm', name=m.name) }}">{{ t('common.delete') }}</button>{% endif %}
+          </div>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="hint">{{ t('maps.none') }}</p>{% endif %}
+</section>
+{# G-190: «Endre navn» fra lista — prompt → POST rename (CSRF via global fetch-wrapper) → reload. #}
+<script nonce="{{ csp_nonce }}">
+(function () {
+  document.querySelectorAll("[data-rename-url]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var cur = b.dataset.name || "";
+      var v = window.prompt({{ t('maps.rename_prompt')|tojson }}, cur);
+      if (v === null) return;
+      var name = v.trim();
+      if (!name || name === cur) return;
+      fetch(b.dataset.renameUrl, { method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ name: name }) })
+        .then(function (r) {
+          if (r.ok) { location.reload(); return; }
+          return r.json().catch(function () { return {}; })
+            .then(function (d) { alert(d.msg || {{ t('maps.rename_failed')|tojson }}); });
+        })
+        .catch(function () { alert({{ t('common.network_error')|tojson }}); });
+    });
+  });
+})();
+</script>
+{% endblock %}

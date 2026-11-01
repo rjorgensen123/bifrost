@@ -1,0 +1,619 @@
+/* Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.3 */
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Self-hostet Inter (latin) - ingen ekstern font-CDN */
+@font-face{font-family:"Inter";font-style:normal;font-weight:400;font-display:swap;src:url("vendor/fonts/inter-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Inter";font-style:normal;font-weight:500;font-display:swap;src:url("vendor/fonts/inter-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Inter";font-style:normal;font-weight:600;font-display:swap;src:url("vendor/fonts/inter-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Inter";font-style:normal;font-weight:700;font-display:swap;src:url("vendor/fonts/inter-latin-700-normal.woff2") format("woff2")}
+
+/* ==========================================================================
+   Bifrost — visuell profil
+   Lyst tema: lyse flater dominerer, mørk blålilla tekst, grønn kun som aksent.
+   ========================================================================== */
+:root{
+  /* Blålilla (bærende) */
+  --bl-900:#181c56; --bl-800:#3a14c6; --bl-600:#4e4feb; --bl-500:#8181f1;
+  --bl-300:#b3b3f6; --bl-200:#dfe1fe; --bl-100:#ededfd;
+  /* Sort + nøytral */
+  --sort:#0d132d; --neu-100:#f8f8ee; --neu-200:#eeefda;
+  /* Grønn (signal/aksent) */
+  --gr-700:#14dd86; --gr-500:#64f7af; --gr-300:#a5face; --gr-100:#d5ffe9;
+
+  /* roller */
+  --bg:var(--neu-100);
+  --surface:#ffffff;
+  --surface-2:var(--bl-100);
+  --border:var(--bl-200);
+  --ink:var(--bl-900);
+  --ink-strong:var(--sort);
+  --muted:#6e72a6;            /* blålilla-tonet, dempet UI-grå */
+  --primary:var(--bl-800);
+  --primary-600:var(--bl-600);
+  --accent:var(--gr-700);
+  --nf:#1484b6;               /* teal aksent (standardpalett) */
+  --nf-ink:#0f6f99;           /* mørkere teal for hover/aktiv */
+  --danger:#d23a57;           /* funksjonell rød, kun destruktivt */
+  --warning:#e67e22;          /* R-085: advarsel (WARNING-loggnivå m.m.) — temabar token */
+  --grad:linear-gradient(90deg,#3a14c6,#4e4feb 55%,#14dd86);
+
+  /* Brand and function colours for graphs/maps (read from :root in JS) and for role badges and
+     shadows in CSS. An uploaded theme (Settings) can override all of them. See docs/theme.example.css. */
+  --ok-ink:#0a8a52;           /* «opp»/ok grønn tekst */
+  --bad-ink:#c0392b;          /* «feil» rød tekst (distinkt fra --danger) */
+  --down:#ff1f3d;             /* link nede på kart (skarp rød) */
+  --cap-low:#2ecc71; --cap-mid:#f1c40f; --cap-high:#e67e22; --cap-crit:#e74c3c; /* kapasitet-heat (trafikklys) */
+  --role-nni:#16a085;         /* Fordeling-kart: NNI */
+  --role-customer-ia:#2e86de; /* Fordeling-kart: Kunde (IA) */
+  --role-pni-bg:#efe6ff; --role-pni-ink:#6b2bd6;  /* rolle-badge: PNI */
+  --role-cdn-bg:#ffe6f3; --role-cdn-ink:#c1247e;  /* rolle-badge: CDN */
+  --role-peering-bg:#e6fff2;                       /* rolle-badge: peering bakgrunn */
+  --grid:#ececf8;             /* uPlot rutenett */
+  --faint:#9aa0d0;            /* svak blålilla (kart-tidsstempel) */
+  --ink-rgb:24,28,86;         /* = --bl-900, for rgba()-skygger */
+  --primary-rgb:58,20,198;    /* = --bl-800, for rad-marker */
+  --danger-rgb:210,58,87;     /* = --danger, for slett-marker */
+
+  --font:"Inter",Arial,sans-serif;
+  --font-display:"Founders Grotesk","Inter",Arial,sans-serif;
+  --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font);
+  font-size:14px; line-height:1.5;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-variant-numeric:tabular-nums}
+
+/* topbar -------------------------------------------------------------- */
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 26px; background:var(--surface);
+  border-bottom:1px solid var(--border);
+  position:sticky; top:0; z-index:5;
+}
+.topbar::after{ /* "grafisk element": tynn gradientlinje */
+  content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px;
+  background:var(--grad); opacity:.9;
+}
+.brand{display:flex; align-items:center; gap:9px; text-decoration:none; cursor:pointer}
+.brand .mark{display:block; flex:none}
+.suffix{
+  font-family:var(--font-display); font-weight:600; font-size:20px; color:var(--ink);
+  letter-spacing:-.01em; margin-left:-2px;
+}
+.suffix::before{content:"·"; color:var(--bl-300); margin:0 7px 0 5px}
+.ver{display:inline-flex; align-items:baseline; gap:10px;
+     margin-left:14px; padding-left:15px; border-left:1px solid var(--border)}
+.ver .prod{font-family:var(--font-display); font-weight:600; font-size:15px;
+           letter-spacing:-.01em; color:var(--nf)}
+.ver .rev{font-size:11px; font-weight:500; color:var(--muted)}
+nav a{color:var(--muted); text-decoration:none; margin-left:20px; padding-bottom:4px; font-weight:600}
+nav a:hover{color:var(--ink)}
+nav a.on{color:var(--primary); border-bottom:2px solid var(--accent)}
+/* G-255: «Logg ut» som POST+CSRF-skjema, men ser ut som en nav-lenke */
+nav form.logout-f{display:inline; margin-left:20px}
+nav form.logout-f button{background:none; border:none; cursor:pointer; color:var(--muted); font:inherit; font-weight:600; padding:0 0 4px 0}
+nav form.logout-f button:hover{color:var(--ink)}
+/* 1.8.0 (Gitea #12): mobil-hamburger — skjult på desktop, vist under breakpoint */
+.nav-toggle{display:none; background:none; border:1px solid var(--border); border-radius:8px;
+  color:var(--ink); font-size:20px; line-height:1; padding:5px 11px; cursor:pointer}
+
+main{max-width:1100px; margin:28px auto; padding:0 26px; display:flex; flex-direction:column; gap:20px}
+/* G-291/1.8.4: kart-VISNINGENE skalerer også OPP på store skjermer — SVG-en er vektor og følger
+   bredden, men 1100px-capen stoppet den. Kart-sidene får main.wide → nesten full viewport. */
+main.wide{max-width:96vw}
+
+/* controls ------------------------------------------------------------ */
+.controls{display:flex; gap:14px; flex-wrap:wrap}
+.seg{display:inline-flex; background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden}
+.seg button, .seg a{background:none; border:none; color:var(--muted); padding:9px 16px; cursor:pointer; font:inherit; font-weight:500; text-decoration:none; display:inline-block; line-height:1.4}
+.seg button:hover, .seg a:hover{color:var(--ink)}
+.seg button.on, .seg a.on{background:var(--bl-100); color:var(--primary)}
+.seg button:disabled, .seg a[disabled]{opacity:.45; cursor:default}
+/* G-190: felles redigerings-bar i seg-grupper (lik på fysisk + logisk kart). Ingen overskrifter —
+   gruppering vises av seg-boksene. «greyed» = synlig men inaktiv utenfor Rediger. */
+.map-editbar{align-items:center}
+.editgrp.greyed{opacity:.5}
+.bolke-right{margin-left:auto}
+.seg .seg-sel{appearance:auto; background:none; border:none; color:var(--muted);
+  padding:9px 14px; font:inherit; font-weight:500; cursor:pointer}
+.seg .seg-sel:hover{color:var(--ink)}
+.seg .seg-sel.on{background:var(--bl-100); color:var(--primary)}   /* G-281: aktivt lang-spenn */
+/* G-281: oppløsnings-etikett ved range-knappene (variant C) — dempet, med liten aksent-prikk. */
+.reslabel{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:500;
+  color:var(--faint); letter-spacing:.02em; white-space:nowrap; margin-left:auto}   /* G-281: helt til høyre → dytter aldri knappene */
+.reslabel::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--accent); opacity:.8}
+/* G-190: «Skjul kategorier ▾» — dropdown over de GLOBALE kategoriene (alltid synlig). */
+.cat-drop{position:relative; display:inline-block}
+.cat-drop>summary{list-style:none; cursor:pointer; padding:9px 14px; border:1px solid var(--border);
+  border-radius:10px; background:var(--surface); color:var(--muted); font:inherit; font-weight:500}
+.cat-drop>summary::-webkit-details-marker{display:none}
+.cat-drop[open]>summary{color:var(--ink)}
+.cat-drop-menu{position:absolute; z-index:30; margin-top:4px; background:var(--surface);
+  border:1px solid var(--border); border-radius:10px; padding:8px; min-width:190px;
+  box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.cat-drop-menu label{display:block; font-size:13px; padding:4px 2px; white-space:nowrap; cursor:pointer}
+/* G-178: area-velger m/ «core ▾»-dropdown (skalerer til mange OSPF-areas) */
+.area-wrap{position:relative; display:inline-flex}
+.area-more{padding:9px 11px !important; border-left:1px solid var(--border) !important}
+.area-menu{position:absolute; top:calc(100% + 4px); left:0; z-index:30; background:var(--surface);
+  border:1px solid var(--border); border-radius:10px; box-shadow:0 4px 14px rgba(0,0,0,.18);
+  padding:4px; min-width:170px; display:flex; flex-direction:column; max-height:60vh; overflow:auto}
+.area-menu a{color:var(--muted); padding:7px 12px; text-decoration:none; border-radius:6px; font-weight:500; white-space:nowrap}
+.area-menu a:hover{color:var(--ink); background:var(--bl-100)}
+.area-menu a.on{color:var(--primary); background:var(--bl-100)}
+.area-menu[hidden]{display:none}
+/* G-179: liten farge-swatch (area-fargen) foran area-navnet i meny/knapper */
+.area-swatch{display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px;
+  vertical-align:middle; box-shadow:0 0 0 1px rgba(0,0,0,.18)}
+
+/* cards --------------------------------------------------------------- */
+.card{background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:22px;
+  box-shadow:0 1px 2px rgba(var(--ink-rgb),.04)}
+.card h2{margin:0 0 16px; font-family:var(--font-display); font-size:16px; font-weight:600;
+  color:var(--ink); display:flex; align-items:center; gap:10px}
+.card h2 .sub{font-size:12px; color:var(--muted); font-weight:400}
+.card.accent{border-color:var(--bl-300); box-shadow:0 1px 2px rgba(var(--ink-rgb),.04), inset 3px 0 0 var(--accent)}
+.chart{width:100%; min-height:320px}   /* matcher charts.js maks-høyde (desktop) */
+@media(max-width:760px){.chart{min-height:200px}}   /* 1.8.0: matcher responsiv min-høyde — ellers 120px dødrom under 200px-canvasen */
+.empty{height:320px; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:13px}
+.sub-select{margin-left:auto}
+
+/* forms --------------------------------------------------------------- */
+.row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+input,select{background:var(--surface); color:var(--ink); border:1px solid var(--border);
+  border-radius:9px; padding:9px 11px; font:inherit}
+input::placeholder{color:#a6a8cf}
+input:focus,select:focus{outline:none; border-color:var(--primary-600); box-shadow:0 0 0 3px var(--bl-200)}
+
+/* Combobox (preset-input.js): ÉN ramme = tallfelt + hurtigvalg-nedtrekk */
+.combo{position:relative; display:inline-flex; align-items:stretch; vertical-align:middle}
+.combo>.combo-input{border-top-right-radius:0; border-bottom-right-radius:0; border-right:0}
+.combo>.combo-btn{border:1px solid var(--border); border-left:0;
+  border-radius:0 9px 9px 0; background:var(--surface-2); color:var(--ink);
+  cursor:pointer; padding:0 10px; font-size:12px; line-height:1}
+.combo>.combo-btn:hover{background:var(--bl-200)}
+.combo>.combo-list{position:absolute; top:calc(100% + 3px); left:0; min-width:100%; z-index:60;
+  margin:0; padding:3px; list-style:none; background:var(--surface); border:1px solid var(--border);
+  border-radius:9px; box-shadow:0 6px 18px rgba(24,28,86,.18); max-height:240px; overflow:auto}
+.combo>.combo-list[hidden]{display:none}
+.combo>.combo-list li{padding:5px 10px; cursor:pointer; border-radius:6px; white-space:nowrap; color:var(--ink)}
+.combo>.combo-list li:hover{background:var(--primary); color:#fff}
+
+/* NetBox device-søk (netbox-search.js): forslags-liste under «Oppdag via SNMP»-adressefeltet */
+.nb-wrap{position:relative; display:inline-block}
+.nb-sug{position:absolute; top:calc(100% + 2px); left:0; z-index:60; margin:0; padding:3px; list-style:none;
+  background:var(--surface); border:1px solid var(--border); border-radius:9px;
+  box-shadow:0 6px 18px rgba(24,28,86,.18); max-height:260px; overflow:auto; min-width:300px}
+.nb-sug[hidden]{display:none}
+.nb-sug li{padding:5px 10px; cursor:pointer; border-radius:6px; white-space:nowrap; color:var(--ink); font-size:13px}
+.nb-sug li:hover{background:var(--primary); color:#fff}
+.nb-sug li.disabled{opacity:.55; cursor:default}
+.nb-sug li.disabled:hover{background:transparent; color:var(--ink)}
+button[type=submit]{background:var(--primary); color:#fff; border:none; border-radius:9px;
+  padding:9px 18px; font:inherit; font-weight:600; cursor:pointer}
+button[type=submit]:hover{background:var(--bl-600)}
+/* 2.0.0: lenke i primærknapp-drakt (verktøy-raden på Min side m.fl.) */
+a.btn{display:inline-block; background:var(--primary); color:#fff; border-radius:9px;
+  padding:9px 18px; font-weight:600; text-decoration:none}
+a.btn:hover{background:var(--bl-600)}
+.hint{color:var(--muted); font-size:12px; margin:10px 0 0}
+.err{color:var(--danger); font-size:13px; margin:8px 0 0; font-weight:500}
+.spin{color:var(--primary); font-size:12px; font-weight:500; align-self:center}
+.htmx-indicator{opacity:0; transition:opacity .15s}
+.htmx-request .htmx-indicator,.htmx-request.htmx-indicator{opacity:1}
+
+/* hosts --------------------------------------------------------------- */
+.host.off{opacity:.55}
+.host-head{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap}
+.hname{font-weight:600; margin-right:10px; color:var(--ink)}
+.addr{color:var(--muted); font-size:12px}
+.tag{display:inline-block; margin-left:8px; padding:2px 9px; border:1px solid var(--border);
+  border-radius:20px; font-size:11px; color:var(--muted); background:var(--neu-100)}
+.actions{display:flex; gap:6px}
+.ghost{background:var(--surface); color:var(--muted); border:1px solid var(--border);
+  border-radius:9px; padding:7px 12px; cursor:pointer; font:inherit}
+.ghost:hover{color:var(--ink); border-color:var(--bl-300)}
+.ghost.sm{padding:4px 9px}
+.ghost.danger:hover{color:var(--danger); border-color:var(--danger)}
+/* G-100: gjør .ghost ensartet uansett element — submit-knapper (Auto-layout/Prøv) ble
+   ellers fylt-primær fordi button[type=submit] overstyrte .ghost. Anker matcher knapper. */
+button[type=submit].ghost{background:var(--surface); color:var(--muted); border:1px solid var(--border);
+  border-radius:9px; padding:7px 12px; font:inherit; font-weight:inherit}
+button[type=submit].ghost:hover{background:var(--surface); color:var(--ink); border-color:var(--bl-300)}
+a.ghost{text-decoration:none; display:inline-flex; align-items:center}
+/* 1.2.2: «Aktiver» = terminal primær-handling (gjør kartet live + lukker editoren).
+   Fylt primær-farge så den skiller seg tydelig fra de grå ghost-knappene. */
+.activate{background:var(--primary); color:#fff; border:1px solid var(--primary); border-radius:9px;
+  padding:7px 12px; cursor:pointer; font:inherit; font-weight:600}
+.activate:hover{background:var(--bl-600); border-color:var(--bl-600)}
+
+/* interfaces ---------------------------------------------------------- */
+.iface-wrap{margin-top:16px}
+.iface-wrap:empty{margin:0}
+.iface-table{width:100%; border-collapse:collapse; margin-bottom:12px; font-size:13px}
+.iface-table th{text-align:left; color:var(--muted); font-weight:600; font-size:11px;
+  text-transform:uppercase; letter-spacing:.04em; padding:8px; border-bottom:1px solid var(--border)}
+.iface-table td{padding:8px; border-bottom:1px solid var(--border)}
+.iface-table tr.off{opacity:.45}
+.right{text-align:right}
+.iface-table th.right{text-align:right}   /* G-156: header følger høyrestilte tall */
+.if-form{margin-top:6px}
+
+.role{font-size:11px; padding:2px 9px; border-radius:6px; font-weight:600}
+.role-IX{background:var(--bl-100);color:var(--bl-800)}
+.role-PNI{background:var(--role-pni-bg);color:var(--role-pni-ink)}
+.role-CDN{background:var(--role-cdn-bg);color:var(--role-cdn-ink)}
+.role-transit{background:var(--gr-100);color:var(--ok-ink)}
+.role-peering{background:var(--role-peering-bg);color:var(--ok-ink)}
+.role-customer{background:var(--neu-200);color:var(--ink)}
+
+/* discovery (0.1.1) --------------------------------------------------- */
+.disc-name{margin:16px 0; align-items:center}
+.disc-name label{color:var(--muted)}
+.disc-table{font-size:12px}
+.disc-table td.alias{color:var(--ink); font-size:11px; max-width:280px;
+  white-space:normal; word-break:break-word}
+.disc-table tr.down{opacity:.5}
+.disc-table select,.disc-table input{padding:5px 8px}
+.up{color:var(--ok-ink); font-weight:600} .dn{color:var(--muted)}
+
+/* uPlot på lyst tema -------------------------------------------------- */
+.u-legend{font-size:12px; color:var(--ink)}
+.u-legend .u-label{color:var(--muted)}
+/* tid-raden i forklaringslinja har ingen label — skjul den tomme cellen
+   (og dermed uPlots ":"-suffix) så bare selve tidsverdien vises */
+.u-legend .u-series:first-child th{display:none}
+.u-title{color:var(--ink)}
+
+/* --- 0.1.3 discovery: skjul interne/virtuelle interface som standard --- */
+.disc-table tr.virtual{display:none}
+.disc-table.show-virtual tr.virtual{display:table-row}
+.disc-table tr.virtual td{opacity:.7}
+
+/* --- 0.1.3 inline edit + re-skann --- */
+.iface-table tr.editing td{background:rgba(var(--primary-rgb),.05)}
+.iface-table tr.editing input,.iface-table tr.editing select{font-size:13px}
+.disc-table tr.existing td{opacity:.5}
+button.sm{font-size:12px;padding:3px 10px}
+
+/* --- 0.1.3 brand split + footer + about --- */
+.brand-wrap{display:flex; align-items:center}
+.ver{text-decoration:none; cursor:pointer}
+.ver:hover .prod{color:var(--nf-ink)}
+.ver.on .prod{color:var(--nf-ink)}
+.appfoot{
+  display:flex; justify-content:space-between; align-items:center; gap:12px;
+  flex-wrap:wrap; padding:16px 26px; margin-top:28px;
+  border-top:1px solid var(--border); color:var(--muted); font-size:12px;
+}
+.appfoot a{color:var(--muted)} .appfoot a:hover{color:var(--primary)}
+.appfoot .dim{opacity:.7}
+.about{max-width:760px; margin:26px auto; padding:0 20px; display:flex; flex-direction:column; gap:18px}
+.about-hero h1{
+  font-family:var(--font-display); font-size:30px; margin:0 0 4px;
+  background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.about-hero .tagline{font-size:15px; color:var(--ink); font-weight:600; margin:0 0 12px}
+.about-hero p{color:var(--muted); line-height:1.6; margin:0}
+.about h2{font-size:15px; margin:0 0 14px; color:var(--ink)}
+.stat-grid{display:flex; flex-direction:column; gap:0}
+.stat{
+  display:flex; justify-content:space-between; align-items:center; gap:16px;
+  padding:10px 0; border-bottom:1px solid var(--border);
+}
+.stat:last-child{border-bottom:0}
+.stat-k{color:var(--muted); font-size:13px; font-weight:600}
+.stat-v{color:var(--ink); font-size:13px; text-align:right}
+.stat-v .dim{color:var(--muted); font-weight:400}
+.copyright{text-align:center; color:var(--muted); font-size:12px; line-height:1.7; margin:6px 0 0}
+.copyright a{color:var(--muted)} .copyright a:hover{color:var(--primary)}
+
+/* logo i topplinja (opplastet logo, ellers router-ikonet) */
+.brand-logo{height:28px; width:auto; display:block; flex:none}
+
+/* auth ----------------------------------------------------------------- */
+.auth-wrap{max-width:380px; margin:9vh auto 0; padding:0 20px}
+/* 2.0.0: Min side har enhets-tabellen — trenger mer enn login-bredden; aldri utenfor vinduet */
+.auth-wrap.account-wrap{max-width:min(760px, 94vw); margin-top:5vh}
+.auth-wrap.account-wrap .iface-table{display:block; overflow-x:auto}
+.auth-wrap .card{padding:24px}
+.auth-wrap h2{margin:0 0 14px; font-size:18px; color:var(--ink)}
+.auth-wrap .field{margin:0 0 12px}
+.auth-wrap .field label{display:block; font-size:12px; color:var(--muted); margin:0 0 5px}
+.auth-wrap input{width:100%}
+.auth-wrap button{width:100%; margin-top:4px}
+.auth-wrap .hint{margin:12px 0 0; text-align:center}
+.err{color:var(--danger); font-size:13px; margin:0 0 10px}
+.ok{color:var(--ok-ink); font-size:13px; margin:0 0 10px}
+#admin-pw-status{font-size:13px; margin-left:6px}
+
+/* tilgangsvelger + brukerredigering */
+.grant-pick > summary{cursor:pointer; color:var(--muted); font-size:13px; padding:6px 0}
+.grants{display:flex; flex-wrap:wrap; gap:8px 18px; margin:8px 0}
+.grants label{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink)}
+/* G-64: tilgang delt i 3 bolker (Internett/Backbone/Generelt) m/ «velg alle» per bolk */
+.grant-groups{margin:8px 0}
+.grant-group{border:1px solid var(--border); border-radius:8px; padding:4px 12px 10px; margin:0 0 10px}
+.grant-group legend{font-size:13px; color:var(--muted); padding:0 4px}
+.grant-group label{display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--ink); margin:4px 14px 0 0}
+/* G-76: sammenleggbare kategori-kort på kategori-oversikten */
+.cat > summary{cursor:pointer; list-style:none; display:flex; align-items:center; gap:10px;
+  color:var(--ink); font-family:var(--font-display); font-weight:600; font-size:18px}
+.cat > summary::-webkit-details-marker{display:none}
+.cat > summary::before{content:"▸"; color:var(--muted); font-size:12px}
+.cat[open] > summary::before{content:"▾"}
+.cat > summary .sub{font-size:12px; color:var(--muted); font-weight:400}
+.cat > table{margin-top:12px}
+.user-edit{padding:6px 2px}
+.user-edit strong{display:block; margin:0 0 8px; color:var(--ink)}
+
+.card{ scroll-margin-top:78px }
+
+/* about: drifts-status og lenker */
+.runline { margin: .1rem 0 1rem; font-size: 1.02rem; }
+.about-links { margin-top: .7rem; }
+.about-links a { font-weight: 600; }
+.bad{color:var(--bad-ink); font-weight:600}
+
+/* trafikk-kart */
+.map-wrap{position:relative}
+#map-svg,#ospf-canvas{display:block;width:100%;height:auto}
+.map-legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12px;color:var(--muted);margin:2px 0 8px}
+.map-legend span{display:inline-flex;align-items:center;gap:6px}
+.map-legend .dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+/* 1.8.0 (Gitea #12): kart-viewport zoom-kontroller (+/-/reset) — 40px tap-mål, nederst til høyre. */
+.map-zoomctl{position:absolute; right:10px; bottom:10px; display:flex; flex-direction:column; gap:6px; z-index:6}
+.map-zoomctl button{width:40px; height:40px; border-radius:10px; border:1px solid var(--border);
+  background:var(--surface); color:var(--ink); font-size:18px; line-height:1; cursor:pointer;
+  box-shadow:0 1px 3px rgba(var(--ink-rgb),.12)}
+.map-zoomctl button:hover{color:var(--primary)}
+/* 1.8.0/K2: interaktiv kart-popup (ghost-info + Adopter) — som tooltip, men klikkbar og lys. */
+.map-pop{position:absolute; z-index:7; background:var(--surface); color:var(--ink);
+  border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:12px;
+  line-height:1.55; box-shadow:0 4px 14px rgba(var(--ink-rgb),.18); max-width:280px}
+.map-pop .map-pop-actions{display:flex; justify-content:space-between; align-items:center; gap:10px;
+  margin:0 0 6px; padding-bottom:6px; border-bottom:1px solid var(--border)}
+.map-pop .map-pop-actions a{font-weight:700; text-decoration:none; color:var(--primary)}
+/* 1.8.2: hover-linja øverst i link-modalen (tilbake — 1.8.1 fjernet den, Roger ville ha den) */
+.lm-info{font-size:12px; line-height:1.55; margin:8px 0 0; padding:8px 10px;
+  background:var(--bl-100); border-radius:8px}
+.down-text{color:var(--down)}
+.map-pop .pop-close{background:none; border:none; cursor:pointer; color:var(--muted); font-size:14px; padding:2px 6px}
+.map-tip{position:absolute;pointer-events:none;opacity:0;transition:opacity .08s;background:var(--bl-900);color:#fff;font-size:12px;line-height:1.55;padding:8px 11px;border-radius:8px;white-space:nowrap;z-index:5}
+
+/* config-speiling (about, admin) */
+.mini{border-collapse:collapse;font-size:13px;margin:.4rem 0 .6rem}
+.mini th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:4px 14px 4px 0}
+.mini td{padding:4px 14px 4px 0;border-top:1px solid var(--border)}
+.mini td.num{font-variant-numeric:tabular-nums;text-align:right}
+.btn{background:var(--primary);color:#fff;border:none;border-radius:9px;padding:9px 16px;font:inherit;font-weight:500;cursor:pointer}
+.btn:hover{background:var(--bl-600)}
+
+/* === Maps: SVG text and the host picker for new maps === */
+#map-svg text{font-family:var(--font)}
+/* host picker: three columns, two on narrow screens */
+.host-pick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 20px;margin:14px 0}
+.host-pick label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink);
+  padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.host-pick label:hover{border-color:var(--bl-300)}
+.host-pick .pick-all{background:var(--bl-100);border-color:var(--bl-300)}
+@media(max-width:640px){.host-pick{grid-template-columns:1fr 1fr}}
+
+/* 1.8.0 (Gitea #12): responsiv chrome — mobil → PC. Nav kollapser til hamburger-panel; chrome/kort
+   krymper. Kun visning; desktop uendret over breakpoint. */
+@media(max-width:760px){
+  .topbar{padding:10px 14px; flex-wrap:wrap}
+  .nav-toggle{display:block}
+  .topbar nav{display:none; order:3; flex-basis:100%; flex-direction:column; align-items:stretch;
+    gap:0; margin-top:8px}
+  .topbar nav.open{display:flex}
+  .topbar nav a{margin-left:0; padding:11px 4px; border-top:1px solid var(--border)}
+  .topbar nav a.on{border-bottom:none; color:var(--primary)}
+  .topbar nav form.logout-f{display:block; margin-left:0; padding:11px 4px; border-top:1px solid var(--border)}
+  .topbar nav form.logout-f button{padding:0}
+  /* undermenyer (Kart▾/Logisk▾) vises inline i mobil-panelet (hover finnes ikke på touch) */
+  .topbar nav .nav-drop{display:block}
+  .topbar nav .nav-drop-menu{display:block; position:static; box-shadow:none; border:0; padding:0 0 6px 14px}
+  main{margin:16px auto; padding:0 14px; gap:14px}
+  .card{padding:16px}
+  .ver{margin-left:10px; padding-left:10px}
+}
+@media(max-width:420px){
+  .brand-logo{height:22px}
+  .card{padding:13px}
+}
+/* 1.8.0: brede tabeller (Topper/admin m.fl.) scroller i SIN EGEN boks på smal skjerm —
+   aldri sidelengs-scroll på body (akseptansekriterium). display:block gir tabellen egen x-scroll. */
+@media(max-width:760px){
+  .iface-table,.tbl{display:block; overflow-x:auto; -webkit-overflow-scrolling:touch}
+}
+/* interne roller */
+.role-core{background:var(--bl-200);color:var(--bl-900)}
+.role-distribution{background:var(--bl-100);color:var(--bl-800)}
+/* interface-liste: ifAlias bryter linje */
+.iface-table td.ifalias{white-space:normal;word-break:break-word;max-width:340px;color:var(--muted);font-size:12px}
+/* interface slett-bekreftelse */
+.iface-table tr.confirm-del td{background:rgba(var(--danger-rgb),.07)}
+.iface-table tr.confirm-del .err{font-size:13px}
+
+/* G-044: dynamisk «Kart ▾»-dropdown i navet */
+.nav-drop{position:relative;display:inline-block}
+.nav-drop-menu{display:none;position:absolute;right:0;top:100%;z-index:20;
+  background:var(--surface,#fff);border:1px solid var(--border,#dfe1fe);border-radius:10px;
+  box-shadow:0 6px 20px rgba(var(--ink-rgb),.12);padding:6px;min-width:180px}
+.nav-drop:hover .nav-drop-menu,.nav-drop:focus-within .nav-drop-menu{display:block}
+.nav-drop-menu a{display:block;padding:7px 12px;border-radius:7px;white-space:nowrap;
+  color:var(--ink,#181c56);text-decoration:none;font-weight:500}
+.nav-drop-menu a:hover{background:var(--on-bg,#ededfd)}
+.nav-drop-menu .muted{display:block;padding:7px 12px;color:var(--muted,#6e72a6)}
+
+/* G-157: kartnavn i editoren er klikkbart (endre navn inline). */
+.editable-name{cursor:pointer;border-bottom:1px dotted currentColor}
+.editable-name:hover{opacity:.8}
+
+/* G-158: diskré kreditt + sist-oppdatert under hver graf (synlig på screenshots). */
+.chart-credit{font-size:10px;color:var(--muted);opacity:.7;text-align:right;margin-top:2px;user-select:none}
+
+/* 1.3.13: kart-oversiktens handlingsknapper grupperes (vis/endre · tilstand · Slett adskilt),
+   + egen dobbel-bekreftelses-modal for sletting (default Avbryt). */
+.map-actions{display:flex; align-items:center; gap:8px; justify-content:flex-end; flex-wrap:wrap}
+.map-actions .ag{display:inline-flex; gap:4px; align-items:center}
+.map-actions .ag-sep{align-self:stretch; width:1px; background:var(--border); margin:2px 2px}
+.map-actions .ag-del{margin-left:auto}   /* dytt Slett helt til høyre, vekk fra de andre */
+.confirm-overlay{position:fixed; inset:0; z-index:1000; background:rgba(var(--ink-rgb),.45);
+  display:flex; align-items:center; justify-content:center; padding:20px}
+.confirm-box{max-width:400px; width:100%; margin:0}
+.confirm-msg{margin:0 0 16px; font-size:14px; line-height:1.5; color:var(--ink)}
+/* Feilmelding for mislykket htmx-handling (ui.js, htmx:responseError) */
+.hx-error{position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:1100;
+  display:flex; gap:12px; align-items:center; max-width:min(640px, calc(100vw - 32px));
+  background:var(--surface); color:var(--ink); border:1px solid var(--danger);
+  border-left:4px solid var(--danger); border-radius:8px; padding:10px 12px;
+  box-shadow:0 4px 16px rgba(var(--ink-rgb),.18); font-size:14px}
+
+/* ==========================================================================
+   Utility classes for what used to be inline style="" attributes, one per declaration with the
+   same value. Pages carry no inline styles, so the Content Security Policy needs no
+   'unsafe-inline' for styles. !important keeps the precedence the inline style had over the
+   other rules. The bf- prefix keeps them apart from uPlot's own u- classes.
+   ========================================================================== */
+.bf-ai-center{align-items:center!important}
+.bf-ai-flex-start{align-items:flex-start!important}
+.bf-b-none{border:none!important}
+.bf-bg-cap-crit{background:var(--cap-crit)!important}
+.bf-bg-cap-high{background:var(--cap-high)!important}
+.bf-bg-cap-low{background:var(--cap-low)!important}
+.bf-bg-cap-mid{background:var(--cap-mid)!important}
+.bf-bg-danger{background:var(--danger)!important}
+.bf-bg-muted{background:var(--muted)!important}
+.bf-bg-rgba-0-0-0-_55{background:rgba(0,0,0,.55)!important}
+.bf-bg-surface-2{background:var(--surface-2)!important}
+.bf-border-color-danger{border-color:var(--danger)!important}
+.bf-bottom-6px{bottom:6px!important}
+.bf-br-6px{border-radius:6px!important}
+.bf-br-8px{border-radius:8px!important}
+.bf-bt-1px-solid-border{border-top:1px solid var(--border)!important}
+.bf-bt-1px-solid-line{border-top:1px solid var(--line,#444)!important}
+.bf-c-danger{color:var(--danger)!important}
+.bf-c-fff{color:#fff!important}
+.bf-c-gr-700{color:var(--gr-700)!important}
+.bf-c-muted{color:var(--muted)!important}
+.bf-c-ok-ink{color:var(--ok-ink)!important}
+.bf-c-warning{color:var(--warning)!important}
+.bf-cur-grab{cursor:grab!important}
+.bf-cur-help{cursor:help!important}
+.bf-cur-pointer{cursor:pointer!important}
+.bf-d-block{display:block!important}
+.bf-d-flex{display:flex!important}
+.bf-d-grid{display:grid!important}
+.bf-d-inline{display:inline!important}
+.bf-d-inline-block{display:inline-block!important}
+.bf-d-inline-flex{display:inline-flex!important}
+.bf-fl-right{float:right!important}
+.bf-flex-1{flex:1!important}
+.bf-font-600-12px-1_3-system-ui-sans-serif{font:600 12px/1.3 system-ui,sans-serif!important}
+.bf-fs-14px{font-size:14px!important}
+.bf-fw-400{font-weight:400!important}
+.bf-fw-600{font-weight:600!important}
+.bf-fw-wrap{flex-wrap:wrap!important}
+.bf-gap-10px{gap:10px!important}
+.bf-gap-12px{gap:12px!important}
+.bf-gap-24px{gap:24px!important}
+.bf-gap-4px{gap:4px!important}
+.bf-gap-6px{gap:6px!important}
+.bf-gap-8px{gap:8px!important}
+.bf-gc-1-1{grid-column:1/-1!important}
+.bf-h-360px{height:360px!important}
+.bf-h-520px{height:520px!important}
+.bf-inset-0{inset:0!important}
+.bf-jc-center{justify-content:center!important}
+.bf-jc-space-between{justify-content:space-between!important}
+.bf-left-12px{left:12px!important}
+.bf-left-50pct{left:50%!important}
+.bf-m-0{margin:0!important}
+.bf-m-0-0-10px{margin:0 0 10px!important}
+.bf-m-0-0-12px{margin:0 0 12px!important}
+.bf-m-0-0-6px{margin:0 0 6px!important}
+.bf-m-0-0-8px{margin:0 0 8px!important}
+.bf-m-14px-0-4px{margin:14px 0 4px!important}
+.bf-m-18px-0-4px{margin:18px 0 4px!important}
+.bf-m-2px-0{margin:2px 0!important}
+.bf-m-48px-auto{margin:48px auto!important}
+.bf-m-4px-0-0{margin:4px 0 0!important}
+.bf-m-6px-0{margin:6px 0!important}
+.bf-m-6px-0-0-0{margin:6px 0 0 0!important}
+.bf-m-8px-0-0{margin:8px 0 0!important}
+.bf-m-8vh-auto-0{margin:8vh auto 0!important}
+.bf-m-_3rem-0{margin:.3rem 0!important}
+.bf-maxh-86vh{max-height:86vh!important}
+.bf-maxw-340px{max-width:340px!important}
+.bf-maxw-420px{max-width:420px!important}
+.bf-maxw-540px{max-width:540px!important}
+.bf-maxw-560px{max-width:560px!important}
+.bf-maxw-640px{max-width:640px!important}
+.bf-mb-10px{margin-bottom:10px!important}
+.bf-mb-14px{margin-bottom:14px!important}
+.bf-minw-120px{min-width:120px!important}
+.bf-minw-130px{min-width:130px!important}
+.bf-minw-200px{min-width:200px!important}
+.bf-minw-220px{min-width:220px!important}
+.bf-minw-240px{min-width:240px!important}
+.bf-minw-260px{min-width:260px!important}
+.bf-minw-6_4em{min-width:6.4em!important}
+.bf-ml-10px{margin-left:10px!important}
+.bf-ml-8px{margin-left:8px!important}
+.bf-mt-0{margin-top:0!important}
+.bf-mt-12px{margin-top:12px!important}
+.bf-mt-14px{margin-top:14px!important}
+.bf-mt-16px{margin-top:16px!important}
+.bf-mt-18px{margin-top:18px!important}
+.bf-mt-4px{margin-top:4px!important}
+.bf-mt-6px{margin-top:6px!important}
+.bf-mt-8px{margin-top:8px!important}
+.bf-mt-_5rem{margin-top:.5rem!important}
+.bf-mt-_6rem{margin-top:.6rem!important}
+.bf-mt-_75rem{margin-top:.75rem!important}
+.bf-of-auto{overflow:auto!important}
+.bf-ol-2px-solid-ok-ink{outline:2px solid var(--ok-ink)!important}
+.bf-op-_8{opacity:.8!important}
+.bf-p-6px-2px{padding:6px 2px!important}
+.bf-p-8px{padding:8px!important}
+.bf-pos-absolute{position:absolute!important}
+.bf-pos-fixed{position:fixed!important}
+.bf-pos-relative{position:relative!important}
+.bf-pt-10px{padding-top:10px!important}
+.bf-pt-12px{padding-top:12px!important}
+.bf-ta-center{text-align:center!important}
+.bf-ta-right{text-align:right!important}
+.bf-top-7pct{top:7%!important}
+.bf-touch-action-none{touch-action:none!important}
+.bf-transform-translatex-50pct{transform:translateX(-50%)!important}
+.bf-va-middle{vertical-align:middle!important}
+.bf-w-100pct{width:100%!important}
+.bf-w-110px{width:110px!important}
+.bf-w-120px{width:120px!important}
+.bf-w-130px{width:130px!important}
+.bf-w-150px{width:150px!important}
+.bf-w-4_5rem{width:4.5rem!important}
+.bf-w-52px{width:52px!important}
+.bf-w-5rem{width:5rem!important}
+.bf-w-60px{width:60px!important}
+.bf-w-80px{width:80px!important}
+.bf-w-88px{width:88px!important}
+.bf-w-90px{width:90px!important}
+.bf-w-9rem{width:9rem!important}
+.bf-w-min-840px-93vw{width:min(840px,93vw)!important}
+.bf-ws-normal{white-space:normal!important}
+.bf-ws-nowrap{white-space:nowrap!important}
+.bf-z-1000{z-index:1000!important}
+.bf-z-5{z-index:5!important}
+.bf-z-60{z-index:60!important}
+/* The hidden attribute always hides, also on elements whose classes set a display value. Last, so it
+   wins over the display utilities above. */
+[hidden]{display:none!important}

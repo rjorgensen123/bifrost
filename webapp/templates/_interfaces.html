@@ -1,0 +1,54 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% if err %}<p class="hint bf-c-danger bf-m-0-0-8px">⚠ {{ err }}</p>{% endif %}
+<table class="iface-table">
+  <thead>
+    <tr><th>{{ t('iface.col_name') }}</th><th>{{ t('iface.col_role') }}</th><th>{{ t('iface.col_counterparty') }}</th><th>ASN</th><th>{{ t('iface.col_description') }}</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for i in interfaces %}
+    {% include "_iface_row.html" %}
+  {% endfor %}
+  </tbody>
+</table>
+
+{% if deleted_interfaces %}
+<details class="bf-m-6px-0">
+  <summary class="muted">{{ t('iface.hidden', n=deleted_interfaces|length) }}</summary>
+  <table class="iface-table"><tbody>
+  {% for i in deleted_interfaces %}
+    <tr><td>{{ i.if_name or '—' }}</td><td class="mono">{{ role_label(i.role) }}</td>
+        <td>{{ i.counterparty or '' }}</td>
+        <td class="ifalias">{{ i.ifalias or '' }}</td>
+        <td class="right">
+          {% if not read_only %}
+          <button class="ghost sm" hx-post="{{ url_for('restore_interface', iface_id=i.id) }}"
+                  hx-target="closest .iface-wrap" hx-swap="innerHTML">↩ {{ t('common.restore') }}</button>
+          <button class="ghost sm danger" hx-post="{{ url_for('purge_interface', iface_id=i.id) }}"
+                  hx-target="closest .iface-wrap" hx-swap="innerHTML"
+                  hx-confirm="{{ t('iface.purge_confirm') }}">{{ t('hosts.purge') }}</button>
+          {% endif %}
+        </td></tr>
+  {% endfor %}
+  </tbody></table>
+</details>
+{% endif %}
+
+{% if not read_only %}
+<form class="row if-form"
+      hx-post="{{ url_for('add_interface', host_id=host_id) }}"
+      hx-target="closest .iface-wrap" hx-swap="innerHTML"
+      data-reset-on-success>
+  <input name="if_index" type="number" placeholder="ifIndex" required class="bf-w-90px">
+  <input name="if_name" placeholder="{{ t('iface.ph_name') }}">
+  <select name="role" required>
+    {% for r in roles %}<option value="{{ r }}">{{ role_label(r) }}</option>{% endfor %}
+  </select>
+  <input name="counterparty" placeholder="{{ t('iface.ph_counterparty') }}">
+  {# G-342 (D3c): fart påkrevd — velg fra lista eller skriv egendefinert (Mbps). #}
+  <input name="speed_mbps" type="number" min="1" list="speed-presets" placeholder="Mbps" required class="bf-w-90px">
+  <input name="asn" type="number" placeholder="ASN" class="bf-w-110px">
+  <button type="submit">+ interface</button>
+  <datalist id="speed-presets"><option value="1000" label="1 Gbps"><option value="10000" label="10 Gbps"><option value="100000" label="100 Gbps"></datalist>
+</form>
+{% endif %}

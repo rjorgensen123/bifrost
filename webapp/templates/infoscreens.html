@@ -1,0 +1,76 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('nav.infoscreens') }}{% endblock %}
+{% block body %}
+
+{# G-193: ny infoscreen (NOC-kiosk). Slides legges til etterpå (pr. infoscreen). #}
+<section class="card">
+  <h2>{{ t('screens.new') }} <span class="sub">{{ t('screens.new_sub') }}</span></h2>
+  <form class="row" method="post" action="{{ url_for('infoscreen.screen_create') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input name="name" placeholder="{{ t('screens.ph_name') }}" required class="bf-minw-240px">
+    <button type="submit">{{ t('screens.create') }}</button>
+  </form>
+  <p class="hint">{{ t('screens.new_hint_html') }}</p>
+</section>
+
+<section class="card">
+  <h2>{{ t('nav.infoscreens') }}</h2>
+  {% if screens %}
+  <table class="iface-table">
+    <thead><tr><th>{{ t('account.col_name') }}</th><th>{{ t('screens.col_link') }}</th><th>{{ t('screens.col_slides') }}</th><th>{{ t('account.col_created') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for s in screens %}
+      <tr>
+        <td>{{ s.name }}</td>
+        {% set kurl = url_for('infoscreen.kiosk', token=s.token, _external=True) %}
+        <td class="mono"><a href="{{ kurl }}" target="_blank" rel="noopener">{{ kurl }}</a></td>
+        <td class="mono">{{ s.slides }}</td>
+        <td class="mono">{{ s.created_at|apptime('%Y-%m-%d %H:%M') }}</td>
+        <td class="right">
+          <div class="map-actions">
+            <span class="ag">
+              <a class="ghost sm" href="{{ url_for('infoscreen.edit_screen', screen_id=s.id) }}">{{ t('screens.edit_slides') if s.can_write else t('screens.view_setup') }}</a>
+              {% if s.can_write %}
+              <button class="ghost sm" type="button" data-rename-url="{{ url_for('infoscreen.screen_rename', screen_id=s.id) }}"
+                      data-name="{{ s.name }}" title="{{ t('maps.rename') }}">{{ t('maps.rename') }}</button>
+              <button class="ghost sm" hx-post="{{ url_for('infoscreen.screen_regenerate', screen_id=s.id) }}" hx-target="body"
+                      hx-confirm="{{ t('screens.new_link_confirm', name=s.name) }}">{{ t('screens.new_link') }}</button>
+              {% endif %}
+            </span>
+            {% if s.can_write %}
+            <button class="ghost sm danger ag-del" hx-post="{{ url_for('infoscreen.screen_delete', screen_id=s.id) }}" hx-target="body"
+                    data-confirm-delete="{{ t('screens.delete_confirm', name=s.name) }}">{{ t('common.delete') }}</button>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="hint">{{ t('screens.none') }}</p>{% endif %}
+</section>
+
+{# G-193: «Endre navn» — prompt → POST rename (CSRF via global fetch-wrapper) → reload. #}
+<script nonce="{{ csp_nonce }}">
+(function () {
+  document.querySelectorAll("[data-rename-url]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var cur = b.dataset.name || "";
+      var v = window.prompt({{ t('screens.rename_prompt')|tojson }}, cur);
+      if (v === null) return;
+      var name = v.trim();
+      if (!name || name === cur) return;
+      fetch(b.dataset.renameUrl, { method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ name: name }) })
+        .then(function (r) { if (r.ok) { location.reload(); return; }
+          return r.json().catch(function () { return {}; })
+            .then(function (d) { alert(d.msg || {{ t('screens.rename_failed')|tojson }}); }); })
+        .catch(function () { alert({{ t('common.network_error')|tojson }}); });
+    });
+  });
+})();
+</script>
+{% endblock %}

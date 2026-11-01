@@ -1,0 +1,6 @@
+# Alle pakker låst (også indirekte) for reproduserbar build. Oppdateres bevisst ved ny versjon.
+pysnmp==7.1.27
+psycopg2-binary==2.9.10
+tzdata==2026.3
+# Indirekte
+pyasn1==0.6.4

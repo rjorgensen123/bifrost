@@ -1,0 +1,69 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+<div id="hosts">
+{% if error %}<p class="err">{{ error }}</p>{% endif %}
+{% if warning %}<p class="hint bf-c-warning">⚠ {{ warning }}</p>{% endif %}
+{% for h in hosts %}
+  <section class="card host {{ 'off' if not h.enabled }}" id="host-{{ h.id }}">
+    <div class="host-head">
+      <div>
+        <span class="hname">{{ h.name }}</span>
+        <span class="addr">{{ h.address }}</span>
+        <span class="tag">SNMP {{ h.snmp_version }}</span>
+        <span class="tag muted">{{ h.iface_enabled }}/{{ h.iface_count }} if</span>
+        {# G-286: NetBox site (slug) + GPS via host→site. Slug kappet til 30, fullt navn i tooltip. #}
+        {% if h.site_name %}<span class="tag muted" title="{{ t('hosts.site_title', site=h.site_name) }}">📍 {{ (h.site_slug or h.site_name)|truncate(30, true, '…') }}{% if h.site_lat is not none and h.site_lon is not none %} ({{ '%.4f'|format(h.site_lat) }}, {{ '%.4f'|format(h.site_lon) }}){% else %} ({{ t('hosts.no_gps') }}){% endif %}</span>{% endif %}
+        {% if h.down_since_fmt %}<span class="tag bf-c-fff bf-bg-danger bf-border-color-danger"
+              title="{{ t('hosts.down_title', n=h.consecutive_failures) }}">● {{ t('hosts.down_since', since=h.down_since_fmt) }}</span>{% endif %}
+        {% if h.last_rescan_error %}<span class="tag bf-c-danger" title="{{ h.last_rescan_error }}">{{ t('hosts.rescan_failed') }}</span>{% endif %}
+      </div>
+      <div class="actions">
+        <button class="ghost sm"
+                data-url="{{ url_for('inventar_host_interfaces' if read_only else 'host_interfaces', host_id=h.id) }}"
+                data-host-toggle="{{ h.id }}">{{ t('hosts.interfaces') }} <span class="arr">▾</span></button>
+        {% if not read_only %}
+        <button class="ghost sm" title="{{ t('hosts.edit_title') }}"
+                hx-get="{{ url_for('edit_host', host_id=h.id) }}"
+                hx-target="closest .host-head" hx-swap="innerHTML">✎</button>
+        <button class="ghost sm" title="{{ t('hosts.rescan') }}"
+                hx-get="{{ url_for('rescan_host', host_id=h.id) }}"
+                hx-target="#if-{{ h.id }}" hx-swap="innerHTML"
+                hx-indicator="#if-{{ h.id }}"
+                data-host-opened>↻</button>
+        <button class="ghost sm" title="{{ t('hosts.pause') if h.enabled else t('hosts.enable') }}"
+                hx-post="{{ url_for('toggle_host', host_id=h.id) }}"
+                hx-target="#hosts" hx-swap="outerHTML">{{ '⏸' if h.enabled else '▶' }}</button>
+        <button class="ghost sm danger" title="{{ t('common.delete') }}"
+                hx-get="{{ url_for('confirm_delete_host', host_id=h.id) }}"
+                hx-target="closest .actions" hx-swap="outerHTML">✕</button>
+        {% endif %}
+      </div>
+    </div>
+    <div id="if-{{ h.id }}" class="iface-wrap"></div>
+  </section>
+{% else %}
+  <p class="hint">{{ t('hosts.none') }}</p>
+{% endfor %}
+{% if deleted_hosts %}
+  <details class="card bf-mt-8px">
+    <summary class="muted">{{ t('hosts.hidden', n=deleted_hosts|length) }}</summary>
+    {% for h in deleted_hosts %}
+    <div class="row bf-jc-space-between bf-p-6px-2px bf-bt-1px-solid-border">
+      <span>{{ h.name }} <span class="addr">{{ h.address }}</span>
+        <span class="tag muted">{{ t('hosts.hidden_at', when=h.deleted_at_fmt) }}</span></span>
+      <span class="actions">
+        {% if not read_only %}
+        <button class="ghost sm" title="{{ t('hosts.show_again') }}"
+                hx-post="{{ url_for('restore_host', host_id=h.id) }}"
+                hx-target="#hosts" hx-swap="outerHTML">↩ {{ t('common.restore') }}</button>
+        <button class="ghost sm danger"
+                hx-post="{{ url_for('purge_host', host_id=h.id) }}"
+                hx-target="#hosts" hx-swap="outerHTML"
+                hx-confirm="{{ t('hosts.purge_confirm', name=h.name) }}">{{ t('hosts.purge') }}</button>
+        {% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  </details>
+{% endif %}
+</div>

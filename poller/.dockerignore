@@ -1,0 +1,10 @@
+# G-318: hold bygg-konteksten ren.
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.swp
+*.swo
+*~
+.DS_Store

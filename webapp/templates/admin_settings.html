@@ -1,0 +1,139 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('admin.settings') }}{% endblock %}
+{% block body %}
+<section class="card">
+  <h2>{{ t('admin.settings') }} <span class="sub">{{ t('settings.sub') }}</span>
+    <a class="ghost sm bf-fl-right" href="{{ url_for('admin') }}">{{ t('settings.back') }}</a></h2>
+  {% if msg %}<p class="hint bf-c-gr-700">✓ {{ msg }}</p>{% endif %}
+  {% if err %}<p class="hint bf-c-danger">⚠ {{ err }}</p>{% endif %}
+
+  <h3 class="bf-m-14px-0-4px">{{ t('settings.managed') }} <span class="sub">{{ t('settings.managed_sub') }}</span></h3>
+  <table class="iface-table">
+    <thead><tr><th>{{ t('settings.col_setting') }}</th><th>{{ t('settings.col_value') }}</th><th>{{ t('settings.col_source') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for r in rows if r.cat == 'managed' and not r.key.startswith('netbox') %}
+      <tr>
+        <td><b>{{ r.label }}</b>{% if r.help %}<br><span class="hint">{{ r.help }}</span>{% endif %}
+          {%- if r.key == 'google_maps_api_key' %}<br><span class="hint">{{ t('settings.google_generate') }}
+            <a href="https://console.cloud.google.com/google/maps-apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a>
+            ({{ t('settings.google_enable') }} <a href="https://console.cloud.google.com/apis/library/tile.googleapis.com" target="_blank" rel="noopener">Map Tiles API</a>)</span>{% endif %}
+          {%- if r.key == 'carto_api_key' %}<br><span class="hint">{{ t('settings.carto_get') }}
+            <a href="https://carto.com/basemaps/apikey/" target="_blank" rel="noopener">CARTO Basemaps</a></span>{% endif %}</td>
+        <td>
+          <form method="post" action="{{ url_for('admin_settings_save') }}" class="row bf-gap-6px bf-m-0">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="key" value="{{ r.key }}">
+            {% if r.type == 'secret' %}
+              <input name="value" type="password" autocomplete="off" class="bf-minw-260px"
+                     placeholder="{{ t('settings.secret_saved', masked=r.masked) if r.is_set else t('settings.not_set') }}">
+            {% elif r.type == 'choice' %}
+              <select name="value" class="bf-minw-260px">
+                {% for c in r.choices %}<option value="{{ c }}" {% if c == r.value %}selected{% endif %}>{{ r.choice_labels.get(c, c) }}</option>{% endfor %}
+              </select>
+            {% elif r.presets %}
+              <input class="grouped-number combo-input bf-minw-200px" name="value" value="{{ r.value }}"
+                     autocomplete="off"
+                     data-presets="{% for pv, pl in r.presets %}{{ pv }}:{{ pl }}{% if not loop.last %},{% endif %}{% endfor %}">
+            {% else %}
+              <input name="value" value="{{ r.value }}" class="bf-minw-260px">
+            {% endif %}
+            <button type="submit">{{ t('common.save') }}</button>
+          </form>
+        </td>
+        <td><span class="tag muted">{{ t('settings.source.' ~ r.source) }}</span></td>
+        <td class="hint">{% if r.env %}{{ r.env }}{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="hint">{{ t('settings.managed_hint_html') }}</p>
+
+  {# G-236: NetBox — URL + token + TLS-verifisering i ÉN form, lagres samtidig. #}
+  {% set nb_url = (rows | selectattr('key','equalto','netbox_url') | first) %}
+  {% set nb_tok = (rows | selectattr('key','equalto','netbox_token') | first) %}
+  {% set nb_tls = (rows | selectattr('key','equalto','netbox_verify_tls') | first) %}
+  <h3 class="bf-m-18px-0-4px">NetBox <span class="sub">{{ t('settings.netbox_sub') }}</span></h3>
+  <form method="post" action="{{ url_for('admin_netbox_settings') }}" class="bf-d-grid bf-gap-8px bf-maxw-540px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>NetBox URL<br>
+      <input name="netbox_url" value="{{ nb_url.value }}" placeholder="https://netbox.example.net" class="bf-w-100pct">
+    </label>
+    <label>{{ t('settings.netbox_token') }}
+      <span class="hint">— {{ t('settings.netbox_token_saved', masked=nb_tok.masked) if nb_tok.is_set else t('settings.not_set') }}; {{ t('settings.netbox_token_ro') }}</span><br>
+      <input name="netbox_token" type="password" autocomplete="off" class="bf-w-100pct"
+             placeholder="{{ t('settings.netbox_token_keep', masked=nb_tok.masked) if nb_tok.is_set else t('settings.netbox_token_paste') }}">
+    </label>
+    <label class="bf-d-flex bf-ai-center bf-gap-6px bf-m-2px-0">
+      <input type="checkbox" name="netbox_verify_tls" value="on" {{ 'checked' if nb_tls.value != 'off' }}>
+      {{ t('settings.netbox_verify') }} <span class="hint">— {{ t('settings.netbox_verify_hint') }}</span>
+    </label>
+    <div><button type="submit">{{ t('settings.netbox_save') }}</button></div>
+  </form>
+  <p class="hint">{{ t('settings.netbox_hint') }}</p>
+
+  <h3 class="bf-m-18px-0-4px">{{ t('settings.locked') }} <span class="sub">{{ t('settings.locked_sub') }}</span></h3>
+  <table class="iface-table">
+    <thead><tr><th>{{ t('settings.col_setting') }}</th><th>{{ t('settings.col_value') }}</th><th>{{ t('settings.col_env') }}</th></tr></thead>
+    <tbody>
+    {% for r in rows if r.cat == 'locked' %}
+      <tr>
+        <td><b>{{ r.label }}</b></td>
+        <td class="mono">{% if r.type == 'secret' %}<span class="hint">{{ t('settings.secret_set', masked=r.masked) if r.is_set else t('settings.secret_not_set') }}</span>{% else %}{{ r.value or '—' }}{% endif %}</td>
+        <td class="hint">{{ r.env }} <span class="tag muted">{{ t('settings.source.' ~ r.source) }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h2>Branding <span class="sub">{{ t('settings.branding_sub') }}</span></h2>
+
+  <div class="row bf-gap-24px bf-ai-flex-start bf-fw-wrap">
+    <div>
+      <h3 class="bf-m-0-0-6px">{{ t('settings.logo') }}</h3>
+      <div class="bf-bg-surface-2 bf-p-8px bf-br-6px bf-d-inline-block">
+        <img src="{{ brand_logo_data or url_for('static', filename='router-icon.svg') }}"
+             alt="logo" height="32">
+      </div>
+      <p class="hint bf-m-6px-0">{{ t('settings.logo_own') if brand_logo_data else t('settings.logo_default') }}</p>
+      <form method="post" action="{{ url_for('admin_settings_branding') }}" enctype="multipart/form-data" class="row bf-gap-6px bf-m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="logo">
+        <input type="file" name="logo" accept=".png,.jpg,.jpeg,.webp,.gif" required>
+        <button type="submit">{{ t('settings.logo_upload') }}</button>
+      </form>
+      <p class="hint bf-m-4px-0-0">{{ t('settings.logo_formats_html') }}</p>
+      {% if brand_logo_data %}
+      <form method="post" action="{{ url_for('admin_settings_branding') }}" class="bf-mt-6px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="logo_clear">
+        <button type="submit" class="ghost">{{ t('settings.logo_reset') }}</button>
+      </form>
+      {% endif %}
+    </div>
+
+    <div>
+      <h3 class="bf-m-0-0-6px">{{ t('settings.theme') }}</h3>
+      <p class="hint bf-m-0-0-6px bf-maxw-420px">{{ t('settings.theme_hint_html') }}
+        {{ t('settings.theme_own') if theme_css else t('settings.theme_default') }}</p>
+      <form method="post" action="{{ url_for('admin_settings_branding') }}" enctype="multipart/form-data" class="row bf-gap-6px bf-m-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="theme">
+        <input type="file" name="css" accept=".css,text/css" required>
+        <button type="submit">{{ t('settings.theme_upload') }}</button>
+      </form>
+      {% if theme_css %}
+      <form method="post" action="{{ url_for('admin_settings_branding') }}" class="bf-mt-6px">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="theme_clear">
+        <button type="submit" class="ghost">{{ t('settings.theme_reset') }}</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</section>
+<script src="{{ url_for('static', filename='preset-input.js') }}"></script>
+{% endblock %}

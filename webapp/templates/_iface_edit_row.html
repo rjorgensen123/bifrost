@@ -1,0 +1,31 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+<tr class="editing">
+  <td><input name="if_name" value="{{ i.if_name or '' }}" class="bf-w-130px"></td>
+  <td>
+    <select name="role">
+      {% for r in roles %}<option value="{{ r }}" {{ 'selected' if r == i.role }}>{{ role_label(r) }}</option>{% endfor %}
+    </select>
+  </td>
+  <td><input name="counterparty" value="{{ i.counterparty or '' }}" class="bf-w-120px"
+           list="motpart-hosts"
+           placeholder="{{ t('iface.ph_peer') }}" title="{{ t('iface.peer_title') }}">
+    {# G-072: forslag = eksisterende host-navn (core/dist-peer) + kjente motparter fra mappingen #}
+    <datalist id="motpart-hosts">{% for hn in hostnames or [] %}<option value="{{ hn }}">{% endfor %}{% for n in cp_names or [] %}<option value="{{ n }}">{% endfor %}</datalist></td>
+  <td><input name="asn" type="number" value="{{ i.asn or '' }}" class="bf-w-90px" min="1" max="999999">
+    {% if err %}<br><span class="hint bf-c-danger">⚠ {{ err }}</span>{% endif %}</td>
+  <td class="ifalias">{{ i.ifalias or '—' }}<br>
+    <input name="speed_mbps" type="number" value="{{ i.speed_mbps or '' }}" placeholder="Mbps" class="bf-w-80px"
+           min="1" list="speed-presets"
+           title="{{ t('iface.speed_title') }}">
+    <datalist id="speed-presets"><option value="1000" label="1 Gbps"><option value="10000" label="10 Gbps"><option value="100000" label="100 Gbps"></datalist>
+    <label title="{{ t('iface.lock_title') }}"><input type="checkbox" name="speed_locked" {{ 'checked' if i.speed_locked }}> {{ t('iface.lock') }}</label></td>
+  <td class="right">
+    <button class="sm"
+            hx-post="{{ url_for('update_interface', iface_id=i.id) }}"
+            hx-include="closest tr" hx-target="closest tr" hx-swap="outerHTML">{{ t('common.save') }}</button>
+    <button class="ghost sm"
+            hx-get="{{ url_for('iface_row', iface_id=i.id) }}"
+            hx-target="closest tr" hx-swap="outerHTML">{{ t('common.cancel') }}</button>
+  </td>
+</tr>

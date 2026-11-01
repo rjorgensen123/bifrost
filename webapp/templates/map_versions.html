@@ -1,0 +1,32 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('maps.versions') }} · {{ map.name }}{% endblock %}
+{% block body %}
+<section class="card">
+  <h2>{{ t('maps.versions') }} <span class="sub">{{ t('versions.sub', name=map.name) }}</span>
+    <a class="ghost sm bf-fl-right" href="{{ url_for('maps.list_maps') }}">{{ t('versions.back') }}</a></h2>
+  {% if versions %}
+  <table class="iface-table">
+    <thead><tr><th>{{ t('log.col_time') }}</th><th>{{ t('maps.col_nodes') }}</th><th>{{ t('versions.col_links') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for v in versions %}
+      <tr>
+        <td class="mono">{{ v.created_at|apptime('%Y-%m-%d %H:%M') }}</td>
+        <td class="mono">{{ v.nodes }}</td>
+        <td class="mono">{{ v.links }}</td>
+        <td class="right">
+          <button class="ghost sm" hx-post="{{ url_for('maps.restore_version', map_id=map.id, snap_id=v.id) }}"
+                  hx-target="body"
+                  hx-confirm="{{ t('versions.restore_confirm') }}">{{ t('common.restore') }}</button>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="hint">{{ t('versions.hint') }}</p>
+  {% else %}
+  <p class="hint">{{ t('versions.none') }}</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,22 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.8 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+<tr class="{{ 'off' if not i.enabled }}">
+  <td class="mono">{{ i.if_name or '—' }}</td>
+  <td><span class="role role-{{ i.role }}">{{ role_label(i.role) }}</span></td>
+  <td>{{ i.counterparty or ('—' if i.role == 'IX' else '?') }}</td>
+  <td class="mono">{{ ('AS' ~ i.asn) if i.asn else '—' }}</td>
+  <td class="ifalias">{{ i.ifalias or '—' }}{% if i.speed_mbps %} <span class="tag muted">{% if i.speed_mbps >= 1000 %}{{ "%g"|format(i.speed_mbps / 1000) }}G{% else %}{{ i.speed_mbps }}M{% endif %}{% if i.speed_locked %} 🔒{% endif %}</span>{% endif %}</td>
+  <td class="right">
+    {% if not read_only %}
+    <button class="ghost sm" title="{{ t('common.edit') }}"
+            hx-get="{{ url_for('edit_interface', iface_id=i.id) }}"
+            hx-target="closest tr" hx-swap="outerHTML">✎</button>
+    <button class="ghost sm" title="{{ t('hosts.pause') if i.enabled else t('hosts.enable') }}"
+            hx-post="{{ url_for('toggle_interface', iface_id=i.id) }}"
+            hx-target="closest .iface-wrap" hx-swap="innerHTML">{{ '⏸' if i.enabled else '▶' }}</button>
+    <button class="ghost sm danger" title="{{ t('common.delete') }}"
+            hx-get="{{ url_for('confirm_delete_interface', iface_id=i.id) }}"
+            hx-target="closest tr" hx-swap="outerHTML">✕</button>
+    {% endif %}
+  </td>
+</tr>

@@ -1,0 +1,227 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block mainclass %}wide{% endblock %}
+{% block title %}{% if data %}{{ data.name }}{% else %}{{ t('ospf.title') }}{% endif %}{% endblock %}
+{% block body %}
+{% if err %}<p class="err">{{ err }}</p>{% endif %}
+<section class="card">
+{% if data %}
+  <h2>{{ data.name }} <span class="sub">{{ t('ospf.sub') }}</span></h2>
+
+  <div class="controls">
+    {# (iii) Area-meny: hopp mellom OSPF-areaer — KUN auto-area-kart (custom-kart har data.areas=[]).
+       Toggles under (ghost/områder/navn-IP/metric/flyt) vises for ALLE logiske kart (G-192). #}
+    {% if data.areas %}
+    {# G-178 (hybrid B): core (backbone) alltid synlig med ▾-dropdown over de andre
+       area-ene. Inline-knapper for de andre vises opptil 4 areas totalt; over det
+       viser raden bare core + gjeldende area, og dropdownen er primær navigasjon. #}
+    {% set acount = data.areas|length %}
+    {% set core = data.areas[0] %}
+    <div class="area-wrap" id="ospf-area-wrap">
+      <div class="seg" id="ospf-areas" title="{{ t('ospf.switch_area') }}">
+        <a href="{{ url_for('ospf.view_area', area=core.id) }}" data-area="{{ core.id }}"
+           class="{{ 'on' if core.id == data.area }}">{{ core.label }}</a>
+        {% if acount > 1 %}
+        <button type="button" id="ospf-area-more" class="area-more"
+                aria-haspopup="true" aria-expanded="false" title="{{ t('ospf.other_area') }}">▾</button>
+        {% endif %}
+        {% if acount <= 4 %}
+          {% for a in data.areas[1:] %}
+          <a href="{{ url_for('ospf.view_area', area=a.id) }}" data-area="{{ a.id }}"
+             class="{{ 'on' if a.id == data.area }}">{{ a.label }}</a>
+          {% endfor %}
+        {% else %}
+          {% for a in data.areas[1:] if a.id == data.area %}
+          <a href="{{ url_for('ospf.view_area', area=a.id) }}" data-area="{{ a.id }}" class="on">{{ a.label }}</a>
+          {% endfor %}
+        {% endif %}
+      </div>
+      {% if acount > 1 %}
+      <div id="ospf-area-menu" class="area-menu" hidden role="menu">
+        {% for a in data.areas[1:] %}
+        <a href="{{ url_for('ospf.view_area', area=a.id) }}" data-area="{{ a.id }}"
+           class="{{ 'on' if a.id == data.area }}" role="menuitem">{{ a.label }}</a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# Vis/skjul ukjente (ghost-)noder: klient-side toggle (ingen reload). Default = vis. #}
+    <div class="seg" id="ospf-ghost-seg" title="{{ t('ospf.ghosts_title') }}">
+      <button type="button" id="ospf-ghosts" class="on">{{ t('ospf.hide_unknown') }}</button>
+    </div>
+
+    {# Vis/skjul OSPF-område-boblene som henger på routerne (multi-area). Default = vis. #}
+    <div class="seg" id="ospf-area-badges-seg" title="{{ t('ospf.areas_title') }}">
+      <button type="button" id="ospf-area-badges-toggle" class="on">{{ t('ospf.hide_areas') }}</button>
+    </div>
+
+    {# G-200: Navn/IP slått sammen til ÉN toggle-knapp (Navn ⇄ IP). Klient-side, ingen reload. #}
+    <div class="seg" id="ospf-naming" title="{{ t('ospf.naming_title') }}">
+      <button type="button" id="ospf-name-toggle" class="on">{{ t('ospf.names') }}</button>
+    </div>
+
+    {# G-200: OSPF-metric (cost-merking på lenkene) av/på — kun logisk kart. Default på. #}
+    <div class="seg" id="ospf-metric-seg" title="{{ t('ospf.metric_title') }}">
+      {# G-276: metric skjult by default — knappen starter i «av»-tilstand (JS syncM bekrefter ved last) #}
+      <button type="button" id="ospf-metric-toggle">{{ t('ospf.show_metric') }}</button>
+    </div>
+
+    {# G-186: forwarding-/trafikkflyt-lense — velg node A → node B, vis OSPF-stien (Dijkstra over cost).
+       LSP-laget (LSP > OSPF) plugges på via G-191 senere. #}
+    <div class="seg" id="ospf-flow" title="{{ t('ospf.flow_title') }}">
+      <button type="button" id="ospf-flow-pick">{{ t('ospf.flow') }}</button>
+      <button type="button" id="ospf-flow-mode" title="{{ t('ospf.flow_mode_title') }}">OSPF+LSP</button>
+    </div>
+    {# G-233/2.0.0: Rediger-knappen — vises KUN med faktisk skrive-tilgang på kartet (Roger). #}
+    {% if can_edit %}
+    <div class="seg bolke-right" title="{{ t('ospf.edit_title') }}">
+      {% if data and data.map_id and data.status == 'published' %}
+      {# G-267: publisert kart (custom ELLER area) → «Rediger» lager en arbeidskopi (server) og åpner editoren PÅ den. #}
+      <form method="post" action="{{ url_for('ospf.map_edit', map_id=data.map_id) }}" class="bf-d-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit">{{ t('common.edit') }}</button>
+      </form>
+      {% else %}
+      <button type="button" id="eb-edit-toggle">{{ t('common.edit') }}</button>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {# G-233: flow-status på EGEN linje (lang tekst skal ikke dytte Rediger-knappen ned). #}
+  <div class="controls"><span class="hint bf-ws-normal" id="ospf-flow-status"></span></div>
+
+  {# G-190: faste redigerings-bolker (kun admin) — LIK struktur på begge kart, bygd én gang.
+     Bolkene grås ut utenfor Rediger (synlige, men disabled). Rediger-knappen helt til høyre.
+     G-192: editoren brukes av BÅDE auto-area-kart og custom-kart — save/relayout-URL-ene går
+     alltid via map_id (map_*-rutene), så samme editor-JS virker på begge. #}
+  {# G-233: felles, låst redigerings-rad fra delt partial (samme på alle kart). Spesial-knappene
+     for logisk ligger over (metric/flyt osv.). #}
+  {% if can_edit %}
+  {% with editbar_map_id = data.map_id %}{% include "_map_editbar.html" %}{% endwith %}
+  {% endif %}
+
+  {# Bygg-knapp + siste-kjøring-status (kun admin). #}
+  {% if is_admin %}
+  <div class="controls" id="ospf-build-row">
+    {# G-195: to knapper (admin) — OSPF-topologi og LSP samles separat (rører routerne hver for seg). #}
+    <button class="ghost sm" type="button" id="ospf-build"
+            data-url="{{ url_for('ospf.build') }}" title="{{ t('ospf.rebuild_title') }}">{{ t('ospf.rebuild') }}</button>
+    <button class="ghost sm" type="button" id="ospf-build-lsp"
+            data-url="{{ url_for('ospf.build_lsp') }}" title="{{ t('ospf.rebuild_lsp_title') }}">{{ t('ospf.rebuild_lsp') }}</button>
+    {# G-190: «Bakgrunnskart…» flyttet til Bakgrunn-bolken i redigerings-baren. #}
+    <span class="hint" id="ospf-run">
+      {% if run and run.status == 'running' %}
+        {{ t('ospf.mapping') }}
+      {% elif run and run.status == 'error' %}
+        {{ t('ospf.last_failed', error=run.error or t('ospf.unknown_error')) }}
+      {% elif run and run.status == 'ok' %}
+        {{ t('ospf.last_built', when=run.finished_at, routers=run.n_routers, adj=run.n_adj) }}{% if run.n_errors %} ({{ t('ospf.n_errors', n=run.n_errors) }}){% endif %}{% if run.error %} · ⏳ {{ run.error }}{% endif %}
+      {% endif %}
+    </span>
+  </div>
+  {% endif %}
+
+  <div id="ospf-wrap" class="map-wrap">
+    {# width=100% + viewBox → responsiv (skalerer til rammen, ingen overflow). Som #map-svg. #}
+    <svg id="ospf-canvas" width="100%"
+         viewBox="0 0 {{ data.width }} {{ data.height }}"
+         preserveAspectRatio="xMidYMid meet"
+         role="img" aria-label="{{ t('ospf.aria', name=data.name) }}"
+         data-is-admin="{{ 1 if is_admin else 0 }}"
+         {% if data.map_id and data.status in ['scratch','draft'] %}data-start-editing="1"{% endif %}{# G-267: arbeidskopi (custom el. area) åpnes i redigering #}
+         data-adopt-url="{{ url_for('admin') }}"
+         {% if data.map_id %}data-node-gps-url="{{ url_for('ospf.node_gps_info', map_id=data.map_id, rid=0) }}"{% endif %}
+         {# G-267: editor-ruter ALLTID by map_id (= arbeidskopiens id ved redigering) — likt for begge karttyper #}
+         {% if data.map_id %}
+         data-save-url="{{ url_for('ospf.map_save_layout', map_id=data.map_id) }}"
+         data-save-draft-url="{{ url_for('ospf.map_save_draft', map_id=data.map_id) }}"
+         data-discard-draft-url="{{ url_for('ospf.map_discard_draft', map_id=data.map_id) }}"
+         data-relayout-url="{{ url_for('ospf.map_relayout', map_id=data.map_id) }}"
+         {% endif %}></svg>
+    <div id="ospf-tip" class="map-tip"></div>
+  </div>
+
+  {# Topologi-data leses av ospf_map.js (CSP-trygt JSON-script). #}
+  <script id="ospf-data" type="application/json" nonce="{{ csp_nonce }}">{{ data|tojson }}</script>
+
+{% else %}
+  <h2>{{ t('ospf.title') }}</h2>
+  <p class="hint">{{ t('ospf.none') }}</p>
+  {% if run and run.status == 'error' %}
+  <p class="hint">{{ t('ospf.latest_failed', error=run.error or t('ospf.unknown_error')) }}</p>
+  {% endif %}
+  {% if is_admin %}
+  <div class="controls" id="ospf-build-row">
+    <button class="ghost sm" type="button" id="ospf-build"
+            data-url="{{ url_for('ospf.build') }}">
+      {% if run and run.status == 'running' %}{{ t('ospf.mapping') }}{% else %}{{ t('ospf.build_now') }}{% endif %}</button>
+    <span class="hint" id="ospf-run"></span>
+  </div>
+  {% endif %}
+{% endif %}
+</section>
+
+{# G-192: medlemskaps-redigering for custom-kart (admin) — legg til / fjern routere. Plassering skjer
+   i kart-editoren over; her styrer du HVILKE routere som er med. Skjules for auto-area-kart. #}
+{% if can_edit and data and data.map_id and not data.area and data.status in ['scratch','draft'] %}
+<section class="card" id="logical-members">
+  <h2>{{ t('ospf.routers_on_map') }} <span class="sub">{{ t('ospf.add_remove') }}</span></h2>
+  {% if data.nodes %}
+  <table class="tbl">
+    <tbody>
+      {% for n in data.nodes %}
+      <tr>
+        <td>{{ n.label }}{% if n.ghost %} <span class="hint">({{ t('ospf.unknown_ghost') }})</span>{% endif %}</td>
+        <td class="bf-ta-right">
+          <form method="post" action="{{ url_for('ospf.map_remove_router', map_id=data.map_id) }}" class="bf-d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="router_id" value="{{ n.rid }}">
+            <button type="submit" class="ghost sm">{{ t('common.remove') }}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="hint">{{ t('ospf.no_routers') }}</p>
+  {% endif %}
+
+  {% set avail = avail_routers|default([]) %}
+  {% if avail %}
+  <form method="post" action="{{ url_for('ospf.map_add_router', map_id=data.map_id) }}" class="bf-mt-_75rem">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <select name="router_id" class="seg-sel">
+      {% for r in avail %}
+      <option value="{{ r.router_id }}">{{ r.label }}{% if r.ghost %} ({{ t('ospf.unknown_ghost') }}){% endif %}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">{{ t('ospf.add_router') }}</button>
+  </form>
+  {% else %}
+  <p class="hint bf-mt-_5rem">{{ t('ospf.all_on_map') }}</p>
+  {% endif %}
+
+  {# G-192: legg til ALLE tilgrensende ghost-noder (umonitorerte naboer av medlemmene) på én gang. #}
+  {% set gn = ghost_neighbors|default([]) %}
+  {% if gn %}
+  <form method="post" action="{{ url_for('ospf.map_add_ghost_neighbors', map_id=data.map_id) }}" class="bf-mt-_6rem">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="ghost sm">+ {{ tn('ospf.add_ghosts', gn|length) }}</button>
+    <span class="hint">{{ t('ospf.add_ghosts_hint') }}</span>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{# G-168: delt kart-kjerne + logisk adapter lastes FØR glue-skriptet. #}
+{# fase 2: live-bakgrunns-fliser (delt med fysisk) — må lastes før kjernen. #}
+<script src="{{ url_for('static', filename='bg_live.js') }}" nonce="{{ csp_nonce }}"></script>
+<script src="{{ url_for('static', filename='map_renderer.js') }}" nonce="{{ csp_nonce }}"></script>
+<script src="{{ url_for('static', filename='map_logical.js') }}" nonce="{{ csp_nonce }}"></script>
+<script src="{{ url_for('static', filename='ospf_map.js') }}" nonce="{{ csp_nonce }}"></script>
+{% endblock %}

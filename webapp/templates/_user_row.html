@@ -1,0 +1,34 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+<tr class="{{ 'off' if not u.enabled }}">
+  <td>{{ u.username }}{% if not u.enabled %} <span class="tag bf-c-danger">deaktivert</span>{% endif %}{% set npk = pk_counts.get(u.id, 0) if pk_counts is defined else 0 %}{% if npk %} <span class="tag muted" title="Registrerte passkeys">🔑 {{ npk }}</span>{% endif %}</td>
+  <td>
+    <form class="row bf-d-inline-flex bf-gap-6px" hx-post="{{ url_for('set_user_group_route', uid=u.id) }}"
+          hx-target="#users" hx-swap="outerHTML">
+      <select name="group_id">
+        {% for g in groups %}
+        <option value="{{ g.id }}" {{ 'selected' if g.id == u.group_id }}>{{ group_label(g) }}</option>
+        {% endfor %}
+      </select>
+      <button class="ghost sm" type="submit" title="{{ t('users.move_title') }}">{{ t('users.move') }}</button>
+    </form>
+  </td>
+  <td class="right">
+    <button class="ghost sm" title="{{ t('users.password_title') }}"
+            hx-get="{{ url_for('edit_user_password', uid=u.id) }}"
+            hx-target="closest tr" hx-swap="outerHTML">{{ t('login.password') }}</button>
+    {% set npk = pk_counts.get(u.id, 0) if pk_counts is defined else 0 %}{% if npk %}
+    <button class="ghost sm" title="{{ t('users.clear_passkeys_title') }}"
+            hx-post="{{ url_for('admin_clear_passkeys', uid=u.id) }}"
+            hx-target="#users" hx-swap="outerHTML"
+            hx-confirm="{{ t('users.clear_passkeys_confirm', n=npk, name=u.username) }}">🔑✕</button>
+    {% endif %}
+    <button class="ghost sm" title="{{ t('users.disable_title') if u.enabled else t('users.enable_title') }}"
+            hx-post="{{ url_for('toggle_user', uid=u.id) }}"
+            hx-target="#users" hx-swap="outerHTML">{{ t('users.disable') if u.enabled else t('hosts.enable') }}</button>
+    <button class="ghost sm danger" title="{{ t('common.delete') }}"
+            hx-post="{{ url_for('delete_user_route', uid=u.id) }}"
+            hx-target="#users" hx-swap="outerHTML"
+            hx-confirm="{{ t('users.delete_confirm', name=u.username) }}">✕</button>
+  </td>
+</tr>

@@ -1,0 +1,9 @@
+<!-- Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.0 -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Router">
+  <!-- Bifrost 1.8.1: generisk default-logo — router-piktogram (sirkel + trafikk begge veier).
+       Erstattes av opplastet logo via Admin -> Innstillinger (G-135). -->
+  <circle cx="32" cy="32" r="30" fill="#3a14c6"/>
+  <path d="M12 21 H40 V15 L54 24 L40 33 V27 H12 Z" fill="#ffffff"/>
+  <path d="M52 37 H24 V31 L10 40 L24 49 V43 H52 Z" fill="#14dd86"/>
+</svg>

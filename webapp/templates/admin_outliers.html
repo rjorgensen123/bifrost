@@ -1,0 +1,143 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('admin.dataquality') }}{% endblock %}
+{% block body %}
+<section class="card">
+  <h2>{{ t('admin.dataquality') }} <span class="sub">{{ t('dq.sub') }}</span></h2>
+  <p class="hint bf-mt-0">{{ t('dq.intro') }}</p>
+
+  <form method="get" action="{{ url_for('admin_outliers') }}" class="controls bf-ai-center">
+    <label>{{ t('dq.threshold') }} <input name="thr" value="{{ thr }}" size="6" class="bf-w-80px"> Gbps</label>
+    <label>{{ t('dq.last') }} <input name="days" value="{{ days }}" size="3" class="bf-w-52px"> {{ t('dq.days') }}</label>
+    <button type="submit">{{ t('dq.search') }}</button>
+  </form>
+  {% if msg %}<p class="hint bf-c-ok-ink">✓ {{ msg }}</p>{% endif %}
+
+  {% if err %}<p class="err">{{ err }}</p>{% endif %}
+  {% if rows %}
+  <table class="iface-table">
+    <tr><th>Host</th><th>Interface</th><th>{{ t('dq.col_time') }}</th><th>dt (s)</th>
+        <th>{{ t('dir.in') }}</th><th>{{ t('dir.out') }}</th><th>{{ t('dq.col_capacity') }}</th><th>{{ t('dq.col_diagnosis') }}</th><th></th></tr>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.host }}</td>
+      <td>{{ r.if_name }}</td>
+      <td class="mono">{{ r.time|apptime("%Y-%m-%d %H:%M:%S") }}</td>
+      <td class="mono">{{ "%.0f"|format(r.dt_s or 0) }}</td>
+      <td class="mono">{{ "%.1f"|format((r.in_bps or 0) / 1e9) }} G</td>
+      <td class="mono">{{ "%.1f"|format((r.out_bps or 0) / 1e9) }} G</td>
+      <td class="mono">{{ r.speed_mbps or "?" }} M</td>
+      <td>{{ r.diag }}{% if r.over_speed %} <span class="hint">({{ t('dq.over_speed', x=r.over_speed) }})</span>{% endif %}</td>
+      <td class="bf-ws-nowrap">
+        <form method="post" action="{{ url_for('admin_outliers_repair') }}" class="bf-d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="interface_id" value="{{ r.interface_id }}">
+          <input type="hidden" name="ts" value="{{ r.ts }}">
+          <input type="hidden" name="thr" value="{{ thr }}"><input type="hidden" name="days" value="{{ days }}">
+          <button name="mode" value="avg" title="{{ t('dq.fix_title') }}"
+                  {% if r.recommend == 'avg' %}class="bf-ol-2px-solid-ok-ink"{% else %}class="ghost sm"{% endif %}>
+            {{ t('dq.fix') }}{% if r.recommend == 'avg' %} ★{% endif %}</button>
+          <button name="mode" value="delete" title="{{ t('dq.delete_title') }}"
+                  {% if r.recommend == 'delete' %}class="bf-ol-2px-solid-ok-ink"{% else %}class="ghost sm danger"{% endif %}>
+            {{ t('common.delete') }}{% if r.recommend == 'delete' %} ★{% endif %}</button>
+        </form>
+        <form method="post" action="{{ url_for('admin_outliers_ack') }}" class="bf-d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="interface_id" value="{{ r.interface_id }}">
+          <input type="hidden" name="ts" value="{{ r.ts }}">
+          <input type="hidden" name="thr" value="{{ thr }}"><input type="hidden" name="days" value="{{ days }}">
+          <input type="hidden" name="reason" value="{{ r.diag }}">
+          <button title="{{ t('dq.ack_title') }}"
+                  {% if r.recommend == 'ack' %}class="bf-ol-2px-solid-ok-ink"{% else %}class="ghost sm"{% endif %}>
+            {{ t('dq.ack') }}{% if r.recommend == 'ack' %} ★{% endif %}</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% elif not err %}
+  <p class="hint">{{ t('dq.none', thr=thr, days=days) }} 👍</p>
+  {% endif %}
+
+  <div class="hint bf-mt-12px bf-bt-1px-solid-border bf-pt-10px">
+    <b>{{ t('dq.help_title') }}</b>
+    <ul class="bf-m-6px-0-0-0">
+      <li>{{ t('dq.help_fix_html') }}</li>
+      <li>{{ t('dq.help_delete_html') }}</li>
+      <li>{{ t('dq.help_ack_html') }}</li>
+    </ul>
+    {{ t('dq.help_star_html') }}
+  </div>
+
+  <form method="post" action="{{ url_for('admin_outliers_purge_peaks') }}" class="bf-mt-14px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" title="{{ t('dq.purge_title') }}">{{ t('dq.purge') }}</button>
+    <span class="hint">{{ t('dq.purge_hint') }}</span>
+  </form>
+
+  <details class="bf-mt-16px bf-bt-1px-solid-border bf-pt-10px">
+    <summary>{{ t('dq.cap_summary_html') }}</summary>
+    <p class="hint bf-mt-8px">{{ t('dq.cap_intro') }}</p>
+    <form method="post" action="{{ url_for('admin_outliers_settings') }}" class="controls bf-ai-center">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>{{ t('dq.cap_max') }}
+        <input class="grouped-number combo-input bf-w-150px" name="max_interface_speed_mbps"
+               value="{{ max_speed }}" size="14" autocomplete="off"
+               data-presets="5000000:5 Tbps,10000000:10 Tbps,50000000:50 Tbps,100000000:100 Tbps"> Mbps
+        <span class="hint">(= {{ (max_speed / 1000000)|round(1) }} Tbps)</span></label>
+      <label>{{ t('setting.peak_aggregate_factor.label') }}
+        <input name="peak_aggregate_factor" value="{{ factor }}" size="4" class="bf-w-60px"></label>
+      <button type="submit">{{ t('common.save') }}</button>
+    </form>
+    <p class="hint">{{ t('dq.cap_presets_hint') }}</p>
+    <p class="hint">{{ t('dq.cap_rule_html') }}</p>
+  </details>
+
+  {% if acked %}
+  <details class="bf-mt-16px bf-bt-1px-solid-border bf-pt-10px">
+    <summary class="hint">{{ t('dq.acked_summary', n=acked|length) }}</summary>
+    <table class="iface-table bf-mt-6px">
+      <tr><th>Host</th><th>Interface</th><th>{{ t('dq.col_time') }}</th><th>{{ t('dq.col_reason') }}</th><th>{{ t('dq.col_acked') }}</th><th></th></tr>
+      {% for a in acked %}
+      <tr>
+        <td>{{ a.host }}</td>
+        <td>{{ a.if_name }}</td>
+        <td class="mono">{{ a.at_time|apptime("%Y-%m-%d %H:%M:%S") }}</td>
+        <td class="hint">{{ a.reason or "—" }}</td>
+        <td class="mono hint">{{ a.acked_at|apptime("%Y-%m-%d %H:%M") }}</td>
+        <td>
+          <form method="post" action="{{ url_for('admin_outliers_unack') }}" class="bf-d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="interface_id" value="{{ a.interface_id }}">
+            <input type="hidden" name="ts" value="{{ a.ts }}">
+            <button class="ghost sm">{{ t('dq.unack') }}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </details>
+  {% endif %}
+
+  {% if jobs %}
+  <div class="bf-mt-16px bf-bt-1px-solid-border bf-pt-10px">
+    <b class="hint">{{ t('dq.jobs') }}</b>
+    <table class="iface-table bf-mt-6px">
+      <tr><th>{{ t('dq.col_type') }}</th><th>{{ t('iface.col_status') }}</th><th>{{ t('dq.col_result') }}</th><th>{{ t('dq.col_time') }}</th></tr>
+      {% for j in jobs %}
+      <tr>
+        <td>{{ t('dq.purge') if j.kind == 'purge_peaks' else t('dq.heal') }}</td>
+        <td>{% if j.status == 'done' %}✓ {{ t('dq.job_done') }}{% elif j.status == 'failed' %}⚠ {{ t('dq.job_failed') }}{% else %}⏳ {{ j.status }}{% endif %}</td>
+        <td class="hint">{{ j.note or j.error or "—" }}</td>
+        <td class="mono hint">{{ (j.finished_at or j.requested_at)|apptime("%Y-%m-%d %H:%M") }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% endif %}
+
+  <p class="hint bf-mt-12px">↩ <a href="{{ url_for('admin') }}">{{ t('common.back_to_admin') }}</a></p>
+</section>
+<script src="{{ url_for('static', filename='preset-input.js') }}"></script>
+{% endblock %}

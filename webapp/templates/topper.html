@@ -1,0 +1,112 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('topper.title') }}{% endblock %}
+{% block body %}
+<section class="card">
+  <h2>{{ t('topper.title') }} <span class="sub">{{ t('topper.sub') }}</span></h2>
+  <div class="controls">
+    <div class="seg" id="iv" title="{{ t('topper.iv_title') }}">
+      <a href="{{ url_for('topper', dir=direction, iv='5min', view=view) }}" class="{{ 'on' if interval == '5min' }}">{{ t('topper.iv_5min_short') }}</a>
+      <a href="{{ url_for('topper', dir=direction, iv='1h', view=view) }}" class="{{ 'on' if interval == '1h' }}">{{ t('topper.iv_1h_short') }}</a>
+    </div>
+    <div class="seg" id="dir">
+      <a href="{{ url_for('topper', dir='total', iv=interval, view=view) }}" class="{{ 'on' if direction == 'total' }}">{{ t('dir.total') }}</a>
+      <a href="{{ url_for('topper', dir='in', iv=interval, view=view) }}" class="{{ 'on' if direction == 'in' }}">{{ t('dir.in') }}</a>
+      <a href="{{ url_for('topper', dir='out', iv=interval, view=view) }}" class="{{ 'on' if direction == 'out' }}">{{ t('dir.out') }}</a>
+    </div>
+    <div class="seg" id="view">
+      <a href="{{ url_for('topper', dir=direction, iv=interval, view='graf') }}" class="{{ 'on' if view == 'graf' }}">{{ t('topper.graph') }}</a>
+      <a href="{{ url_for('topper', dir=direction, iv=interval, view='tabell') }}" class="{{ 'on' if view != 'graf' }}">{{ t('topper.table') }}</a>
+    </div>
+  </div>
+
+  {% if view == 'graf' %}
+    {% if trend and trend.sections %}
+    <style nonce="{{ csp_nonce }}">
+      /* G-159: kompakt rutenett — flere serie-grafer ved siden av hverandre i stedet for
+         én full-bredde graf per serie, så mange grafer får plass. uPlot-høyden settes i
+         charts.js (320); her styrer vi bredde/plassering. */
+      .trend-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));
+        gap:14px;margin:4px 0 8px}
+      .trend-cell{min-width:0}
+      .trend-title{font-size:13px;font-weight:600;color:var(--muted);margin:0 0 2px}
+      .trend-chart{min-height:0}
+    </style>
+    {% for sec in trend.sections %}
+    {% set sec_i = loop.index0 %}
+    <h3 class="bf-m-18px-0-4px">{{ sec.title }}</h3>
+    <div class="trend-grid">
+      {% for s in sec.series %}
+      <div class="trend-cell">
+        <div class="trend-title">{{ s.label }}</div>
+        <div id="trend-{{ loop.index0 }}-{{ sec_i }}" class="chart trend-chart"></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    <script type="application/json" id="trend-data" nonce="{{ csp_nonce }}">{{ trend|tojson }}</script>
+    {% else %}
+    <p class="hint">{{ t('topper.no_trend') }}</p>
+    {% endif %}
+  {% else %}
+
+  {% if not data.sections %}
+  <p class="hint">{{ t('topper.no_data') }}</p>
+  {% endif %}
+
+  {% for sec in data.sections %}
+  <h3 class="bf-m-18px-0-4px">{{ sec.title }}</h3>
+  <table class="iface-table">
+    <thead><tr>
+      <th>{{ t('topper.col_category') }}</th>
+      <th class="right">{{ t('topper.col_day') }}</th><th class="right">{{ t('range.week') }}</th><th class="right">{{ t('range.month') }}</th>
+      <th class="right">{{ t('topper.col_ytd') }}</th><th class="right">{{ t('common.alltime') }}</th><th>{{ t('topper.col_reached') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for r in sec.rows %}
+      <tr>
+        <td>{{ r.label }}</td>
+        <td class="right mono">{{ r.day|fmtbps }}</td>
+        <td class="right mono">{{ r.week|fmtbps }}</td>
+        <td class="right mono">{{ r.month|fmtbps }}</td>
+        <td class="right mono">{{ r.year|fmtbps }}</td>
+        <td class="right mono"><b>{{ r.alltime|fmtbps }}</b></td>
+        <td class="hint">{{ r.when_fmt }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endfor %}
+
+  <p class="hint bf-mt-14px">{{ t('topper.footnote', iv=t('topper.iv_5min') if interval == '5min' else t('topper.iv_1h')) }}</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+{% if view == 'graf' and trend and trend.sections %}
+<script nonce="{{ csp_nonce }}">
+  /* G-159: trend-grafer på Trafikk-topper. Gjenbruker makeChart/setData fra charts.js
+     (samme akser, bps-format, tema-palett, legende, tooltip, tidssone). trend leveres nå
+     seksjonert: {x, sections:[{title, series:[{scope,label,y}]}]}. Vi tegner ÉN liten
+     graf PER serie under hver seksjons-overskrift; setData forventer
+     {t, series:[{name,data}]} — mappes her per serie. Container-id matcher malens
+     "trend-<serie-indeks>-<seksjon-indeks>". */
+  (function () {
+    const trend = JSON.parse(document.getElementById("trend-data").textContent);
+    const DIR_LABEL = { total: {{ t('dir.total')|tojson }}, in: {{ t('dir.in')|tojson }}, out: {{ t('dir.out')|tojson }} };
+    const dl = DIR_LABEL[trend.direction] || "";
+    const xs = trend.x || [];
+    (trend.sections || []).forEach((sec, si) => {
+      (sec.series || []).forEach((s, si2) => {
+        const elId = "trend-" + si2 + "-" + si;
+        if (!document.getElementById(elId)) return;
+        const chart = makeChart(elId);
+        chart.setData({ t: xs, series: [{ name: s.label, data: s.y }] }, dl);
+      });
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

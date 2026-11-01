@@ -1,0 +1,18 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{# G-336: NetBox-sync kjøres i bakgrunns-worker-en — operatøren startet den og kan forlate siden.
+   Boksen poller seg selv til jobben er ferdig, så stopper den. #}
+<div id="netbox-status-box"
+     {% if job and job.status in ('queued', 'running') %}
+     hx-get="{{ url_for('netbox_sync_status') }}" hx-trigger="load delay:2s" hx-swap="outerHTML"
+     {% endif %}>
+  {% if not job %}
+  <p class="hint bf-mt-8px">{{ t('netbox.never') }}</p>
+  {% elif job.status in ('queued', 'running') %}
+  <p class="hint bf-mt-8px">⏳ {{ t('netbox.running_progress', done=job.done, total=job.total) if job.total else t('netbox.running') }}</p>
+  {% elif job.status == 'failed' %}
+  <p class="err bf-mt-8px">{{ t('netbox.failed', error=job.error) }}</p>
+  {% else %}
+  <p class="hint bf-mt-8px">✓ {{ t('netbox.done', summary=job.error or 'ok') }}</p>
+  {% endif %}
+</div>

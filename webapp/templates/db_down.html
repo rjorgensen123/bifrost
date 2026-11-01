@@ -1,0 +1,14 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{# G-122: frittstående DB-nede-side. Krever verken innlogging eller DB (inject_globals er
+   DB-trygg). Vises av den globale errorhandler-en når databasen er utilgjengelig. #}
+{% extends "base.html" %}
+{% block title %}{{ t('dbdown.title') }}{% endblock %}
+{% block body %}
+<section class="card accent bf-maxw-640px bf-m-48px-auto bf-ta-center">
+  <h2 class="bf-jc-center">⚠ {{ t('dbdown.heading') }}</h2>
+  <p>{{ t('dbdown.body_html', app=app_name) }}</p>
+  <p class="hint">{{ t('dbdown.hint') }}</p>
+  <p class="hint bf-mt-16px">{{ app_name }} v{{ version }}</p>
+</section>
+{% endblock %}

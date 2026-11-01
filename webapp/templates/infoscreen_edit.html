@@ -1,0 +1,103 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ screen.name }} — {{ t('screens.col_slides') }}{% endblock %}
+{% block body %}
+
+<section class="card">
+  <h2>{{ screen.name }} <span class="sub">{{ t('screens.slides_sub') }}</span></h2>
+  {% set kurl = url_for('infoscreen.kiosk', token=screen.token, _external=True) %}
+  <p class="hint">{{ t('screens.link_label') }}
+    <a class="mono" href="{{ kurl }}" target="_blank" rel="noopener">{{ kurl }}</a>
+    · <a href="{{ url_for('infoscreen.screens') }}">← {{ t('screens.all') }}</a></p>
+
+  {% if slides %}
+  <table class="iface-table">
+    <thead><tr><th>#</th><th>{{ t('grp.col_type') }}</th><th>{{ t('screens.col_content') }}</th><th>{{ t('screens.col_caption') }}</th><th>{{ t('screens.col_duration') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for s in slides %}
+      <tr>
+        <td class="mono">{{ loop.index }}</td>
+        <td class="mono">{% if s.kind == 'physical_map' %}{{ t('screens.kind_map') }}{% else %}{{ t('topper.graph') }}{% endif %}</td>
+        <td>
+          {% if s.kind == 'physical_map' %}
+            {% set nm = (physical_maps|selectattr('id','equalto', s.ref|int)|map(attribute='name')|first) %}
+            {{ nm or t('screens.map_ref', ref=s.ref) }}
+          {% else %}{{ graph_label(s.ref) }}{% endif %}
+        </td>
+        <td>{{ s.caption or '' }}</td>
+        {# G-275: visetid redigerbar rett på raden (ikke bare ved opprettelse) #}
+        <td>
+          {% if can_write %}
+          <form method="post" action="{{ url_for('infoscreen.slide_duration', screen_id=screen.id, slide_id=s.id) }}" class="bf-d-inline-flex bf-ai-center bf-gap-4px">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input name="duration_sec" type="number" min="2" value="{{ s.duration_sec }}" class="bf-w-4_5rem" title="{{ t('screens.duration_title') }}"> s
+            <button type="submit" class="ghost sm">{{ t('common.save') }}</button>
+          </form>
+          {% else %}<span class="mono">{{ s.duration_sec }} s</span>{% endif %}
+        </td>
+        <td class="right">
+          {% if can_write %}
+          <div class="map-actions">
+            <span class="ag">
+              <form method="post" action="{{ url_for('infoscreen.slide_move', screen_id=screen.id, slide_id=s.id) }}" class="bf-d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="dir" value="up">
+                <button class="ghost sm" type="submit" {{ 'disabled' if loop.first }}>▲</button>
+              </form>
+              <form method="post" action="{{ url_for('infoscreen.slide_move', screen_id=screen.id, slide_id=s.id) }}" class="bf-d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="dir" value="down">
+                <button class="ghost sm" type="submit" {{ 'disabled' if loop.last }}>▼</button>
+              </form>
+            </span>
+            <form method="post" action="{{ url_for('infoscreen.slide_remove', screen_id=screen.id, slide_id=s.id) }}" class="bf-d-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="ghost sm danger" type="submit">{{ t('common.remove') }}</button>
+            </form>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="hint">{{ t('screens.no_slides') }}</p>{% endif %}
+</section>
+
+{% if can_write %}
+<section class="card">
+  <h2>{{ t('screens.add_map') }} <span class="sub">{{ t('screens.add_map_sub') }}</span></h2>
+  {% if physical_maps %}
+  <form class="row" method="post" action="{{ url_for('infoscreen.slide_add', screen_id=screen.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="kind" value="physical_map">
+    <select name="ref" class="seg-sel">
+      {% for m in physical_maps %}<option value="{{ m.id }}">{{ m.name }}</option>{% endfor %}
+    </select>
+    <input name="caption" placeholder="{{ t('screens.ph_caption') }}" class="bf-minw-200px">
+    <input name="duration_sec" type="number" min="2" value="15" class="bf-w-5rem" title="{{ t('screens.duration_title') }}"> s
+    <button type="submit">{{ t('common.add') }}</button>
+  </form>
+  {% else %}<p class="hint">{{ t('screens.no_maps') }}</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>{{ t('screens.add_graph') }} <span class="sub">{{ t('screens.add_graph_sub') }}</span></h2>
+  <form class="row" method="post" action="{{ url_for('infoscreen.slide_add', screen_id=screen.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="kind" value="graph">
+    <select name="ref" class="seg-sel">
+      {% for grp, items in graph_catalog|groupby('group') %}
+      <optgroup label="{{ grp }}">
+        {% for g in items %}<option value="{{ g.key }}">{{ g.label }}</option>{% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+    <input name="caption" placeholder="{{ t('screens.ph_caption') }}" class="bf-minw-200px">
+    <input name="duration_sec" type="number" min="2" value="15" class="bf-w-5rem" title="{{ t('screens.duration_title') }}"> s
+    <button type="submit">{{ t('common.add') }}</button>
+  </form>
+</section>
+{% else %}
+<p class="hint">{{ t('screens.read_only') }}</p>
+{% endif %}
+{% endblock %}

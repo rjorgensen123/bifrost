@@ -1,0 +1,40 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('nav.log') }}{% endblock %}
+{% block body %}
+<section class="card">
+  <h2>{{ t('nav.log') }} <span class="sub">{{ t('log.sub', n=300) }}</span></h2>
+  <form class="row bf-gap-12px bf-mb-10px bf-ai-center" method="get">
+    <label>{{ t('log.logger') }}
+      <select name="logger" data-autosubmit>
+        <option value="">{{ t('log.all') }}</option>
+        {% for lg in loggers %}<option value="{{ lg }}" {{ 'selected' if lg==sel_logger }}>{{ lg }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ t('log.level') }}
+      <select name="level" data-autosubmit>
+        <option value="">{{ t('log.all') }}</option>
+        {% for lv in ['INFO','WARNING','ERROR'] %}<option value="{{ lv }}" {{ 'selected' if lv==sel_level }}>{{ lv }}</option>{% endfor %}
+      </select>
+    </label>
+    <a class="ghost sm" href="{{ url_for('logg') }}">{{ t('log.reset') }}</a>
+  </form>
+  <table class="iface-table">
+    <thead><tr><th>{{ t('log.col_time') }}</th><th>{{ t('log.col_level') }}</th><th>{{ t('log.col_logger') }}</th><th>{{ t('log.col_message') }}</th></tr></thead>
+    <tbody>
+    {% for e in events %}
+      <tr>
+        <td class="mono">{{ e.ts }}</td>
+        {# R-085: tema-tokens i stedet for hardkodede farger — org-temaet (G-135) slår gjennom #}
+        <td><span class="tag bf-c-warning bf-c-fff bf-bg-danger"{% if e.level=='WARNING' %}{% elif e.level=='ERROR' %}{% endif %}>{{ e.level }}</span></td>
+        <td class="mono muted">{{ e.logger }}</td>
+        <td>{{ e.message }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="muted">{{ t('log.none') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

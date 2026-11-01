@@ -1,0 +1,72 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('nav.history') }}{% endblock %}
+{% block body %}
+<section class="card">
+  <h2>{{ t('history.heading') }} <span class="sub">{{ t('history.sub') }}</span></h2>
+  <div class="row bf-gap-12px bf-fw-wrap bf-ai-center bf-mb-10px">
+    <label>Host <select id="h-host"></select></label>
+    <label>Interface <select id="h-iface" class="bf-maxw-340px"></select></label>
+    <div class="seg" id="h-range">
+      <button data-v="36h" class="on">{{ t('range.hours', n=36) }}</button>
+      <button data-v="7d">{{ t('range.days', n=7) }}</button>
+      <button data-v="30d">{{ t('range.days', n=30) }}</button>
+      <button data-v="90d">{{ t('range.days', n=90) }}</button>
+      <button data-v="12mo">{{ t('range.months', n=12) }}</button>
+    </div>
+    <label>{{ t('history.date') }} <input type="date" id="h-date"></label>
+    <span class="reslabel" id="h-res"></span>
+  </div>
+  <div id="h-chart" class="chart"></div>
+</section>
+<script id="hist-data" type="application/json" nonce="{{ csp_nonce }}">{{ data|tojson }}</script>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+(function () {
+  const D = JSON.parse(document.getElementById("hist-data").textContent);
+  const hostSel = document.getElementById("h-host");
+  const ifSel   = document.getElementById("h-iface");
+  const dateInp = document.getElementById("h-date");
+  const resEl   = document.getElementById("h-res");
+  function onZoom(f, t) { state.zoom = { from: f, to: t }; refresh(); }         // G-278: dra-marker → zoom
+  function onResetZoom() { if (state.zoom) { state.zoom = null; refresh(); } }  // G-278: dblklikk → tilbake
+  const chart   = makeChart("h-chart", null, { onZoom, onResetZoom });  // G-85 farger + G-278 zoom
+  const state   = { range: "36h", date: "", zoom: null };
+
+  D.hosts.forEach(h => hostSel.add(new Option(h.name, h.id)));
+
+  function fillIfaces() {
+    ifSel.innerHTML = "";
+    D.ifaces.filter(i => String(i.host_id) === hostSel.value)
+            .forEach(i => ifSel.add(new Option(i.label, i.id)));
+  }
+
+  async function refresh() {
+    if (!ifSel.value) { chart.clear(); resEl.textContent = ""; return; }
+    let url = `{{ url_for('api_history') }}?interface=${ifSel.value}`;
+    url += state.zoom ? `&from=${state.zoom.from}&to=${state.zoom.to}`          // G-278: zoom-vindu
+                      : state.date ? `&date=${state.date}` : `&range=${state.range}`;
+    try {
+      const d = await (await fetch(url)).json();
+      resEl.textContent = tidyRes(d.resolution, d.res_code) + (state.zoom ? " · " + {{ t('chart.zoomed')|tojson }} : "");
+      if (!d.t || !d.t.length) { chart.clear(); return; }
+      chart.setData(d, "");
+    } catch (e) { console.error("historikk feilet", e); }
+  }
+
+  hostSel.addEventListener("change", () => { fillIfaces(); refresh(); });
+  ifSel.addEventListener("change", refresh);
+  dateInp.addEventListener("change", () => { state.date = dateInp.value; state.zoom = null; refresh(); });
+  document.querySelectorAll("#h-range button").forEach(b =>
+    b.addEventListener("click", () => {
+      document.querySelectorAll("#h-range button").forEach(x => x.classList.remove("on"));
+      b.classList.add("on"); state.range = b.dataset.v;
+      state.date = ""; dateInp.value = ""; state.zoom = null; refresh();   // nytt valg nullstiller zoom
+    }));
+
+  if (D.hosts.length) { hostSel.value = D.hosts[0].id; fillIfaces(); refresh(); }
+})();
+</script>
+{% endblock %}

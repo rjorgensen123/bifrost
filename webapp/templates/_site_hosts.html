@@ -1,0 +1,12 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{# G-286: enhetene på én site — format «hostnavn (IP)», hele lenken tilbake til hosten på Admin. #}
+{% if hosts %}
+<div class="bf-m-6px-0">
+  {% for h in hosts %}
+  <div><a href="{{ url_for('admin') }}#host-{{ h.id }}">{{ h.name }} ({{ h.address }})</a></div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="hint bf-m-6px-0">{{ t('sites.no_devices') }}</p>
+{% endif %}

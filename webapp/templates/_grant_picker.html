@@ -1,0 +1,40 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.8 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{# Tilgangs-velger delt i 3 bolker (G-64/G-68). Forventer i kontekst:
+   categories (internett-roller), backbone_cats (backbone-roller: NNI/core/distribution),
+   cust_internett (m/ASN), cust_backbone (u/ASN), og granted (set av (kind, value) — tom
+   for ny bruker). «velg alle» er per bolk. Aggregat-grafer (Oversikt/Backbone) er egne
+   alt-eller-ingenting-grants; kunder er verden-delt (customer_ia / customer_bb). #}
+{% set granted = granted if granted is defined else [] %}
+<div class="grant-groups">
+  <fieldset class="grant-group">
+    <legend><label><input type="checkbox" class="grant-all"
+      data-grant-group> <strong>{{ t('nav.internet') }}</strong></label></legend>
+    <label><input type="checkbox" name="role" value="overview"
+      {{ 'checked' if ('role', 'overview') in granted }}> {{ t('grants.overview') }}</label>
+    {% for r in categories %}<label><input type="checkbox" name="role" value="{{ r }}"
+      {{ 'checked' if ('role', r) in granted }}> {{ r }}</label>{% endfor %}
+    {% for c in cust_internett %}<label><input type="checkbox" name="customer_ia" value="{{ c }}"
+      {{ 'checked' if ('customer_ia', c) in granted }}> {{ c }}</label>{% endfor %}
+  </fieldset>
+
+  <fieldset class="grant-group">
+    <legend><label><input type="checkbox" class="grant-all"
+      data-grant-group> <strong>{{ t('nav.backbone') }}</strong></label></legend>
+    <label><input type="checkbox" name="role" value="backbone"
+      {{ 'checked' if ('role', 'backbone') in granted }}> {{ t('grants.backbone_all') }}</label>
+    {% for r in backbone_cats %}<label><input type="checkbox" name="role" value="{{ r }}"
+      {{ 'checked' if ('role', r) in granted }}> {{ r }}</label>{% endfor %}
+    {% for c in cust_backbone %}<label><input type="checkbox" name="customer_bb" value="{{ c }}"
+      {{ 'checked' if ('customer_bb', c) in granted }}> {{ c }}</label>{% endfor %}
+  </fieldset>
+
+  <fieldset class="grant-group">
+    <legend><label><input type="checkbox" class="grant-all"
+      data-grant-group> <strong>{{ t('grants.general') }}</strong></label></legend>
+    <label><input type="checkbox" name="role" value="fordeling"
+      {{ 'checked' if ('role', 'fordeling') in granted }}> {{ t('nav.distribution') }}</label>
+    <label><input type="checkbox" name="role" value="public"
+      {{ 'checked' if ('role', 'public') in granted }}> {{ t('grants.public') }}</label>
+  </fieldset>
+</div>

@@ -1,0 +1,138 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('editbar.background') }} · {{ map.name }}{% endblock %}
+{% block body %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+<section class="card">
+  <h2>{{ t('bg.own') }} <span class="sub">{{ t('bg.own_sub', name=map.name) }}</span></h2>
+  <form class="row" method="post" enctype="multipart/form-data"
+        action="{{ url_for('maps.upload_background', map_id=map.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="file" name="image" accept="image/*" required>
+    <button type="submit">{{ t('bg.upload') }}</button>
+  </form>
+  <p class="hint">{{ t('bg.own_hint') }}</p>
+</section>
+<section class="card">
+  <h2>{{ t('bg.net') }} <span class="sub">{{ t('bg.net_sub', name=map.name) }}</span>
+    <a class="ghost sm bf-fl-right" href="{{ back_url }}">{{ t('bg.back') }}</a></h2>
+  <p class="hint">{{ t('bg.net_hint_html') }}</p>
+  <div class="controls">
+    <label>{{ t('bg.source') }}
+      <select id="bg-source">
+        {% for s in sources %}<option value="{{ s.key }}" {{ 'selected' if s.key == (map.bg_source or default_source) }}
+          data-snap="{{ 1 if s.snapshot_ok else 0 }}" data-live="{{ 1 if s.live_ok else 0 }}"
+          data-key-ok="{{ 1 if s.key_ok else 0 }}">{{ s.label }}</option>{% endfor %}
+      </select>
+    </label>
+    <button id="bg-lock-snap" type="button">{{ t('bg.lock_snap') }}</button>
+    <button id="bg-lock-live" type="button">{{ t('bg.lock_live') }}</button>
+    {% if has_bg %}
+    <form method="post" action="{{ url_for('maps.clear_background', map_id=map.id) }}" class="bf-d-inline"
+          data-confirm="{{ t('bg.remove_confirm') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit">{{ t('bg.remove') }}</button>
+    </form>
+    {% endif %}
+    <span id="bg-status" class="hint"></span>
+  </div>
+  <div class="controls">
+    <label>{{ t('bg.dim') }}
+      <input type="range" id="bg-opacity" min="0" max="100" step="1"
+             value="{{ map.bg_opacity if map.bg_opacity is not none else 22 }}" class="bf-va-middle">
+      <span id="bg-opacity-val" class="hint">{{ map.bg_opacity if map.bg_opacity is not none else 22 }}%</span>
+    </label>
+  </div>
+  {% if stored_not_allowed %}<p class="hint bf-c-warning">⚠ {{ t('bg.stored_not_allowed', source=stored_not_allowed) }}</p>{% endif %}
+  <p id="bg-note" class="hint" hidden></p>
+  <div id="lmap" class="bf-h-520px bf-br-8px bf-mt-8px"></div>
+</section>
+<script id="bg-data" type="application/json" nonce="{{ csp_nonce }}">
+{"sources": {{ tile_sources|tojson }}, "norway": {{ norway|tojson }}, "cur_bbox": {{ cur_bbox|tojson }},
+ "default": {{ (map.bg_source or default_source)|tojson }}, "google_ok": {{ 'true' if google_ok else 'false' }},
+ "urls": {"set": {{ url_for('maps.set_background', map_id=map.id)|tojson }},
+          "opacity": {{ url_for('maps.set_background_opacity', map_id=map.id)|tojson }},
+          "google_session": {{ url_for('maps.google_tile_session', map_id=map.id)|tojson }},
+          "edit": {{ back_url|tojson }}}}
+</script>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+(function () {
+  const cfg = JSON.parse(document.getElementById("bg-data").textContent);
+  const S = cfg.sources, sel = document.getElementById("bg-source");
+  const snapBtn = document.getElementById("bg-lock-snap"), liveBtn = document.getElementById("bg-lock-live");
+  const status = document.getElementById("bg-status"), note = document.getElementById("bg-note");
+  const opSlider = document.getElementById("bg-opacity"), opVal = document.getElementById("bg-opacity-val");
+  const CSRF = (document.querySelector('meta[name=csrf-token]') || {}).content || "";
+  const nb = cfg.norway;
+  const map = L.map("lmap");
+  const bb = cfg.cur_bbox || nb;   // åpne på gjeldende bakgrunns-utsnitt om det finnes, ellers Norge
+  map.fitBounds([[bb.south, bb.west], [bb.north, bb.east]]);
+  let layer = null;
+
+  function opt() { return sel.options[sel.selectedIndex]; }
+  function caps() {
+    const o = opt();
+    if (o.dataset.keyOk !== "1") return { snap: false, live: false, key: false };   // no API key: unusable
+    return { snap: o.dataset.snap === "1", live: o.dataset.live === "1", key: true };
+  }
+
+  async function setLayer(key) {
+    if (layer) { map.removeLayer(layer); layer = null; }
+    note.hidden = true;
+    const c = caps();
+    snapBtn.disabled = !c.snap; liveBtn.disabled = !c.live;
+    if (!c.key) { note.hidden = false; note.textContent = {{ t('bg.needs_key')|tojson }}; return; }
+    if (!c.snap && c.live) { note.hidden = false; note.textContent = {{ t('bg.live_only')|tojson }}; }
+    const opacity = (+opSlider.value) / 100;
+    if (key === "google") {                       // G-129: Google trenger session-token (kun live)
+      try {
+        const r = await fetch(cfg.urls.google_session, { method: "POST", headers: { "X-CSRFToken": CSRF } });
+        const d = await r.json();
+        if (!r.ok) { note.hidden = false; note.textContent = d.error || {{ t('bg.google_unavailable')|tojson }}; return; }
+        const url = "https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}?session=" + d.session + "&key=" + d.key;
+        layer = L.tileLayer(url, { maxZoom: 20, opacity, attribution: "© Google" }).addTo(map);
+      } catch (e) { note.hidden = false; note.textContent = {{ t('bg.google_failed')|tojson }} + e; }
+      return;
+    }
+    const s = S[key]; if (!s || !s.url) return;
+    layer = L.tileLayer(s.url, { maxZoom: s.max_zoom || 18, opacity, attribution: s.attribution }).addTo(map);
+  }
+  sel.addEventListener("change", () => setLayer(sel.value));
+  setLayer(cfg.default);
+
+  // G-130: demping — live-preview på leaflet-laget + lagre per kart
+  let opTimer = null;
+  opSlider.addEventListener("input", () => {
+    opVal.textContent = opSlider.value + "%";
+    if (layer) layer.setOpacity((+opSlider.value) / 100);
+    clearTimeout(opTimer);
+    opTimer = setTimeout(() => {
+      fetch(cfg.urls.opacity, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": CSRF },
+        body: new URLSearchParams({ opacity: opSlider.value }) });
+    }, 400);
+  });
+
+  async function lock(mode) {
+    const b = map.getBounds(), z = map.getZoom();
+    status.textContent = mode === "live" ? {{ t('bg.saving_live')|tojson }} : {{ t('bg.fetching_snapshot')|tojson }};
+    snapBtn.disabled = liveBtn.disabled = true;
+    try {
+      const body = new URLSearchParams({ source: sel.value, mode, zoom: z,
+        west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() });
+      const r = await fetch(cfg.urls.set, { method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRFToken": CSRF }, body });
+      const d = await r.json();
+      if (r.ok && d.status === "ok") { status.textContent = {{ t('bg.saved')|tojson }} + ` (${d.mode}, ${d.w}×${d.h})`; window.location = cfg.urls.edit; }
+      else { status.textContent = ""; alert(d.error || {{ t('bg.set_failed')|tojson }}); }
+    } catch (e) { status.textContent = ""; alert({{ t('bg.error')|tojson }} + e); }
+    const c = caps(); snapBtn.disabled = !c.snap; liveBtn.disabled = !c.live;
+  }
+  snapBtn.addEventListener("click", () => lock("snapshot"));
+  liveBtn.addEventListener("click", () => lock("live"));
+})();
+</script>
+{% endblock %}

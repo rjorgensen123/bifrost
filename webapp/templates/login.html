@@ -1,0 +1,73 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('login.title') }}{% endblock %}
+{% block body %}
+<div class="auth-wrap">
+  <section class="card">
+    <h2>{{ t('login.title') }}</h2>
+    {% if error %}<p class="err">{{ error }}</p>{% endif %}
+    <form method="post" action="{{ url_for('login_user') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ request.args.get('next','') }}">
+      <div class="field"><label>{{ t('login.username') }}</label>
+        <input name="username" autocomplete="username webauthn" autofocus required></div>
+      <div class="field"><label>{{ t('login.password') }}</label>
+        <input name="password" type="password" autocomplete="current-password" required></div>
+      <button type="submit">{{ t('login.submit') }}</button>
+    </form>
+    {# 2.1.0: passkey — ett trykk med FaceID/fingeravtrykk/PIN. Avbrudd → passord over. #}
+    <div id="pk-row" class="bf-mt-12px bf-pt-12px bf-bt-1px-solid-border" hidden>
+      <button type="button" id="pk-login" class="ghost bf-w-100pct">🔑 {{ t('login.passkey') }}</button>
+      <p class="err" id="pk-err" hidden></p>
+    </div>
+    <p class="hint"><a href="{{ url_for('login_admin') }}">{{ t('login.admin_link') }}</a></p>
+  </section>
+</div>
+<script src="{{ url_for('static', filename='passkey.js') }}"></script>
+<script nonce="{{ csp_nonce }}">
+(function () {
+  if (!window.bfPasskey || !bfPasskey.usable()) return;   // skjul der passkey ikke kan kjøre
+  var OPTS = {{ url_for('passkey_login_options')|tojson }};      // prefiks-riktige via url_for
+  var VERIFY = {{ url_for('passkey_login_verify')|tojson }};
+  document.getElementById("pk-row").hidden = false;
+  // Hent options ÉN gang og del mellom conditional-autofyll og knappen (unngår challenge-race).
+  var pkOpts = null, pkAbort = null;
+  function getOpts() {
+    return pkOpts ? Promise.resolve(pkOpts)
+                  : bfPasskey.loginOptions(OPTS).then(function (o) { pkOpts = o; return o; });
+  }
+  document.getElementById("pk-login").addEventListener("click", function () {
+    var e = document.getElementById("pk-err"); e.hidden = true;
+    if (pkAbort) { try { pkAbort.abort(); } catch (_) {} pkAbort = null; }   // stopp conditional først
+    getOpts().then(function (o) { return bfPasskey.loginWith(o, VERIFY, false, null); })
+      .catch(function (err) {
+        pkOpts = null;   // challengen er brukt/utløpt — neste forsøk henter en fersk
+        // Eksplisitt trykk → ALLTID tilbakemelding (aldri stille). NotAllowedError betyr
+        // avbrutt ELLER blokkert (f.eks. ugyldig sertifikat på mobil) — nettleseren skiller
+        // dem ikke, så vi sier begge deler mykt. Passord-innloggingen står rett over.
+        if (err && (err.name === "NotAllowedError" || err.name === "AbortError")) {
+          e.textContent = {{ t('login.passkey_none')|tojson }};
+        } else {
+          e.textContent = err.message || {{ t('login.passkey_failed')|tojson }};
+        }
+        e.hidden = false;
+      });
+  });
+  // Conditional UI: nettleseren tilbyr lagrede passkeys i brukernavn-feltet (stille ved avbrudd).
+  // Bruker SAMME options (samme challenge) som knappen — og en AbortController så knappen
+  // kan avbryte dette ventende kallet i stedet for å starte et konkurrerende options-kall.
+  if (PublicKeyCredential.isConditionalMediationAvailable) {
+    PublicKeyCredential.isConditionalMediationAvailable().then(function (ok) {
+      if (!ok) return;
+      getOpts().then(function (o) {
+        pkAbort = ("AbortController" in window) ? new AbortController() : null;
+        return bfPasskey.loginWith(o, VERIFY, true, pkAbort ? pkAbort.signal : null);
+      }).catch(function (err) {   // stille — passord-flyten består
+        if (!err || err.name !== "AbortError") pkOpts = null;   // brukt/utløpt → fersk ved neste forsøk
+      });
+    });
+  }
+})();
+</script>
+{% endblock %}

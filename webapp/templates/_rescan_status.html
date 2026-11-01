@@ -1,0 +1,17 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.8 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+<div id="rescan-all-status"
+     {% if job and job.status in ('queued','running') %}hx-get="{{ url_for('refresh_all_status') }}" hx-trigger="load delay:2s" hx-swap="outerHTML"{% endif %}>
+  {% if not job %}
+  {% elif job.status == 'queued' %}
+    <span class="hint spin">{{ t('rescan.queued') }}</span>
+  {% elif job.status == 'running' %}
+    <span class="hint spin">{{ t('rescan.running', done=job.done, total=job.total, updated=job.updated_ifaces) }}</span>
+  {% elif job.status == 'failed' %}
+    <span class="err">{{ t('rescan.failed', error=job.error) }}</span>
+    <button class="ghost sm" hx-get="{{ url_for('hosts_fragment') }}" hx-target="#hosts" hx-swap="outerHTML">{{ t('rescan.refresh_hosts') }}</button>
+  {% else %}
+    <span class="hint">{{ t('rescan.done', updated=job.updated_ifaces, total=job.total) }}</span>
+    <button class="ghost sm" hx-get="{{ url_for('hosts_fragment') }}" hx-target="#hosts" hx-swap="outerHTML">{{ t('rescan.refresh_hosts') }}</button>
+  {% endif %}
+</div>

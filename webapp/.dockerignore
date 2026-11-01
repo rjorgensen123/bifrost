@@ -1,0 +1,11 @@
+# G-318: hold bygg-konteksten ren. NB: tests/ beholdes bevisst — Tier C-citests kjøres
+# INNE i den bootede containeren (docker compose exec … python tests/citest_*.py).
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.swp
+*.swo
+*~
+.DS_Store

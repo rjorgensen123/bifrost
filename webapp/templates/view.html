@@ -1,0 +1,88 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('nav.internet') }}{% endblock %}
+{% block body %}
+<p class="hint bf-m-0-0-8px">{{ t('view.hint') }}</p>
+<div class="controls">
+  <div class="seg" id="range">
+    <button data-v="36h" class="on">{{ t('range.hours', n=36) }}</button>
+    <button data-v="7d">{{ t('range.week') }}</button>
+    <button data-v="30d">{{ t('range.month') }}</button>
+    <select class="seg-sel" id="range-long" title="{{ t('range.long_title') }}">
+      <option value="12mo">{{ t('range.months', n=12) }}</option>
+      <option value="24mo">{{ t('range.months', n=24) }}</option>
+      <option value="36mo">{{ t('range.months', n=36) }}</option>
+      <option value="48mo">{{ t('range.months', n=48) }}</option>
+    </select>
+  </div>
+  <div class="seg" id="dir">
+    <button data-v="total" class="on">{{ t('dir.total') }}</button>
+    <button data-v="in">{{ t('dir.in') }}</button>
+    <button data-v="out">{{ t('dir.out') }}</button>
+  </div>
+  <a class="ghost sm bf-ml-8px" href="{{ url_for('topper') }}" title="{{ t('view.alltime_title') }}">{{ t('common.alltime') }} ▸</a>
+  <span id="res-label" class="reslabel"></span>
+</div>
+
+<section class="card">
+  <h2>{{ t('view.total') }} <span class="sub">{{ t('view.total_sub') }}</span><label class="hint bf-fl-right bf-fw-400 bf-cur-pointer"><input type="checkbox" id="rec-main" checked> {{ t('chart.alltime_toggle') }}</label></h2>
+  <div id="chart-main" class="chart"></div>
+</section>
+
+<section class="card">
+  <h2>{{ t('view.per_customer') }} <span class="sub">{{ t('view.per_customer_sub') }}</span><label class="hint bf-fl-right bf-fw-400 bf-cur-pointer"><input type="checkbox" id="rec-cust"> {{ t('chart.alltime_toggle') }}</label></h2>
+  <div id="chart-cust" class="chart"></div>
+</section>
+
+<section class="card">
+  <h2>{{ t('view.custom') }}
+    <select id="role-pick" class="sub-select">
+      <option value="">{{ t('view.pick_group') }}</option>
+      {% for r in roles %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
+    </select><label class="hint bf-fl-right bf-fw-400 bf-cur-pointer"><input type="checkbox" id="rec-group"> {{ t('chart.alltime_toggle') }}</label>
+  </h2>
+  <div id="chart-group" class="chart"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  const state = { range: "36h", dir: "total", role: "", zoom: null };
+  const DIR_LABEL = { total: {{ t('dir.total')|tojson }}, in: {{ t('dir.in')|tojson }}, out: {{ t('dir.out')|tojson }} };
+  function onZoom(f, t) { state.zoom = { from: f, to: t }; refresh(); }         // G-278: dra-marker → zoom
+  function onResetZoom() { if (state.zoom) { state.zoom = null; refresh(); } }  // G-278: dblklikk → tilbake
+
+  const mainChart  = makeChart("chart-main", null, { record: true, onZoom, onResetZoom });  // G-156 + G-278
+  const custChart  = makeChart("chart-cust", null, { onZoom, onResetZoom });
+  const groupChart = makeChart("chart-group", null, { onZoom, onResetZoom });
+  [["rec-main", mainChart], ["rec-cust", custChart], ["rec-group", groupChart]].forEach(([id, ch]) => {
+    const cb = document.getElementById(id);
+    if (cb) cb.addEventListener("change", () => ch.setRecord(cb.checked));   // G-156: av/på rekord-linje
+  });
+
+  async function refresh() {
+    const dl = DIR_LABEL[state.dir] || "";
+    const win = state.zoom ? `&from=${state.zoom.from}&to=${state.zoom.to}` : "";   // G-278
+    const rl = document.getElementById("res-label");
+    if (rl) rl.textContent = state.zoom
+      ? zoomResLabel(state.zoom.from, state.zoom.to) + " · " + {{ t('chart.zoomed')|tojson }}
+      : resLabel(state.range);
+    loadInto(mainChart, `{{ url_for('api_main') }}?range=${state.range}&dir=${state.dir}${win}`, dl);
+    loadInto(custChart, `{{ url_for('api_customers') }}?range=${state.range}&dir=${state.dir}${win}`, dl);
+    if (state.role)
+      loadInto(groupChart, `{{ url_for('api_group') }}?role=${state.role}&range=${state.range}&dir=${state.dir}${win}`, dl);
+    else
+      groupChart.clear();
+  }
+
+  bindRange(v => { state.range = v; state.zoom = null; refresh(); });   // nytt preset nullstiller zoom
+  bindSeg("dir",   v => { state.dir   = v; refresh(); });
+  document.getElementById("role-pick").addEventListener("change", e => {
+    state.role = e.target.value; refresh();
+  });
+
+  refresh();
+  setInterval(refresh, 60000);   // live-ish; matches poll cadence
+</script>
+{% endblock %}

@@ -1,0 +1,53 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{# G-072: tabell over hele klassifiserings-mappingen. Hele boksen byttes ut (outerHTML) ved
+   legg-til/lagre/slett, så lista alltid er fersk. read_only=True: samme tabell (data, tittel,
+   kolonner, rollenavn) uten redigering — for lese-sida (paritetsregelen, én kilde). #}
+<div id="classmap-box">
+<section class="card">
+  <h2>{{ t('classmap.title') }} <span class="sub">{{ t('classmap.sub', n=rules|length) }}</span></h2>
+  <p class="hint bf-m-0-0-12px">{{ t('classmap.intro_ro') if read_only else t('classmap.intro_edit') }}</p>
+  {% if err %}<p class="hint bf-c-danger bf-m-0-0-10px">⚠ {{ err }}</p>{% endif %}
+  <table class="iface-table">
+    <thead><tr><th>{{ t('classmap.col_term') }}</th><th>{{ t('classmap.col_name') }}</th><th>{{ t('iface.col_role') }}</th><th>ASN</th>{% if not read_only %}<th class="right">{{ t('classmap.col_action') }}</th>{% endif %}</tr></thead>
+    <tbody>
+      {% if read_only %}
+      {% for rule in rules %}
+      <tr>
+        <td class="mono">{{ rule.match_term }}</td>
+        <td>{{ rule.name or '—' }}</td>
+        <td>{{ role_label(rule.role) if rule.role else '—' }}</td>
+        <td class="mono">{{ rule.asn or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">{{ t('classmap.none') }}</td></tr>
+      {% endfor %}
+      {% else %}
+      <tr class="editing">
+        <td><input name="match_term" placeholder="{{ t('classmap.ph_term') }}" class="bf-w-120px"></td>
+        <td><input name="name" placeholder="{{ t('hosts.ph_name') }}" class="bf-w-120px"></td>
+        <td><select name="role"><option value="">—</option>{% for r in roles %}<option value="{{ r }}">{{ role_label(r) }}</option>{% endfor %}</select></td>
+        <td><input name="asn" type="number" placeholder="ASN" class="bf-w-90px" min="1" max="999999"></td>
+        <td class="right"><button class="sm" hx-post="{{ url_for('classmap_add') }}"
+              hx-include="closest tr" hx-target="#classmap-box" hx-swap="outerHTML">{{ t('common.add') }}</button></td>
+      </tr>
+      {% for rule in rules %}
+      <tr>
+        <td><input name="match_term" value="{{ rule.match_term }}" class="bf-w-120px"></td>
+        <td><input name="name" value="{{ rule.name or '' }}" class="bf-w-120px"></td>
+        <td><select name="role"><option value="">—</option>{% for r in roles %}<option value="{{ r }}" {{ 'selected' if r == rule.role }}>{{ role_label(r) }}</option>{% endfor %}</select></td>
+        <td><input name="asn" type="number" value="{{ rule.asn or '' }}" class="bf-w-90px" min="1" max="999999"></td>
+        <td class="right">
+          <button class="sm" hx-post="{{ url_for('classmap_update', rule_id=rule.id) }}"
+                  hx-include="closest tr" hx-target="#classmap-box" hx-swap="outerHTML">{{ t('common.save') }}</button>
+          <button class="ghost sm danger" hx-post="{{ url_for('classmap_delete', rule_id=rule.id) }}"
+                  hx-target="#classmap-box" hx-swap="outerHTML"
+                  hx-confirm="{{ t('classmap.delete_confirm', term=rule.match_term) }}">{{ t('common.delete') }}</button>
+        </td>
+      </tr>
+      {% endfor %}
+      {% endif %}
+    </tbody>
+  </table>
+</section>
+</div>

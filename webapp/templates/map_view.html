@@ -1,0 +1,81 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block mainclass %}wide{% endblock %}
+{% block title %}{{ map.name }}{% endblock %}
+{% block body %}
+<section class="card">
+  <h2>{{ map.name }} <span class="sub">{{ t('mapview.sub') }}</span>{% if can_edit %} <a class="ghost sm bf-fl-right" href="{{ url_for('maps.edit_map', map_id=map.id) }}">{{ t('common.edit') }}</a>{% endif %}</h2>
+  <div id="map-legend" class="map-legend">
+    <span><span class="dot bf-bg-cap-low"></span>&lt;25%</span>
+    <span><span class="dot bf-bg-cap-mid"></span>25–60%</span>
+    <span><span class="dot bf-bg-cap-high"></span>60–85%</span>
+    <span><span class="dot bf-bg-cap-crit"></span>&gt;85%</span>
+    <span><span class="dot bf-bg-muted"></span>{{ t('mapview.unknown_cap') }}</span>
+  </div>
+  {% if public_link_ok %}
+  <p class="hint">{{ t('mapview.public_link') }}
+     <a href="{{ url_for('public_map', map_id=map.id) }}">{{ url_for('public_map', map_id=map.id) }}</a></p>
+  {% endif %}
+  <div class="controls" id="time-controls" title="{{ t('mapview.time_title') }}">
+    <button class="ghost sm" id="t-back" type="button" title="{{ t('mapview.back5') }}">◀</button>
+    <input type="range" id="t-slider" min="-1440" max="0" step="5" value="0"
+           class="bf-flex-1 bf-minw-220px" aria-label="{{ t('mapview.time_aria') }}">
+    <button class="ghost sm" id="t-fwd" type="button" title="{{ t('mapview.fwd5') }}">▶</button>
+    <span id="t-label" class="hint bf-minw-130px">{{ t('mapview.now_live') }}</span>
+    <button class="ghost sm" id="t-now" type="button">{{ t('range.now') }}</button>
+  </div>
+  {# G-173: trafikkflyt-overlegg (elve-modell). G-289: BETA — skjult by default, slås på via
+     Admin → Innstillinger («Trafikkflyt-overlegg på weathermap (BETA)»). Ikke god nok ennå. #}
+  {% if flow_enabled %}
+  <div class="controls" id="flow-controls" title="{{ t('mapview.flow_title') }}">
+    <div class="seg"><button type="button" id="flow-toggle">{{ t('mapview.flow') }}</button></div>
+  </div>
+  {% endif %}
+  <div id="map-wrap" class="map-wrap">
+    <svg id="map-svg" width="100%" viewBox="0 0 {{ map.width }} {{ map.height }}"
+         data-api="{{ url_for('maps.map_data', map_id=map.id) }}"{% if is_admin or is_operator %}
+         data-host-url="{{ url_for('admin') if is_admin else url_for('inventar') }}"{% endif %} role="img"
+         aria-label="{{ t('mapview.aria', name=map.name) }}"></svg>
+    <div id="map-tip" class="map-tip"></div>
+  </div>
+</section>
+<!-- G-097: klikk link i visning -> trafikkgraf i modal (ingen navigering) -->
+<div id="link-modal" class="bf-pos-fixed bf-inset-0 bf-z-1000 bf-bg-rgba-0-0-0-_55" hidden>
+  <div class="card bf-pos-absolute bf-top-7pct bf-left-50pct bf-transform-translatex-50pct bf-w-min-840px-93vw bf-maxh-86vh bf-of-auto">
+    <div class="row bf-jc-space-between bf-ai-center">
+      <strong id="lm-title">{{ t('mapview.traffic') }}</strong>
+      <span>
+        <span class="seg" id="lm-range">
+          <button data-v="36h" class="on">{{ t('range.hours', n=36) }}</button>
+          <button data-v="7d">{{ t('range.days', n=7) }}</button>
+          <button data-v="30d">{{ t('range.days', n=30) }}</button>
+        </span>
+        <button class="ghost sm danger bf-ml-8px" id="lm-close">{{ t('common.close') }}</button>
+      </span>
+    </div>
+    {# 1.8.2: hover-linja (øyeblikks-retning+rate) øverst — fjernet i 1.8.1, TILBAKE på Rogers ord #}
+    <div id="lm-info" class="lm-info" hidden></div>
+    <div id="lm-chart" class="chart bf-h-360px bf-mt-8px"></div>
+    <span class="hint" id="lm-res"></span>
+  </div>
+</div>
+<script id="map-data" type="application/json" nonce="{{ csp_nonce }}">
+{# R-071: background/node_size via |tojson (uten manuelle anførselstegn) som resten av blokken #}
+{"canvas": {"width": {{ map.width }}, "height": {{ map.height }}, "background": {{ map.background|tojson }}, "node_size": {{ (map.node_size or 'L')|tojson }}, "bg_opacity": {{ map.bg_opacity if map.bg_opacity is not none else 22 }}},
+ "nodes": {{ nodes|tojson }}, "links": {{ links|tojson }},
+ "has_bg": {{ 'true' if map.bg_zoom is not none else 'false' }},
+ "bg_mode": {{ (map.bg_mode or 'snapshot')|tojson }},
+ "bg_live": {{ bg_live|tojson }},
+ "bg_url": {{ url_for('maps.background_png', map_id=map.id)|tojson }},
+ "google_session": {{ url_for('maps.google_tile_session', map_id=map.id)|tojson }},
+ "bg_attr": {{ (map.bg_attribution or '')|tojson }},
+ "link_hist": {{ url_for('maps.link_history', map_id=map.id, link_id=0)|tojson }},
+ "flow_max_paths": {{ flow_max_paths }}}
+</script>
+{% endblock %}
+{% block scripts %}
+{# G-184 (G-168 fase 3): fysisk visning på den DELTE kart-kjernen (map_renderer.js + map_physical.js). #}
+<script src="{{ url_for('static', filename='map_renderer.js') }}"></script>
+<script src="{{ url_for('static', filename='map_physical.js') }}"></script>
+{% endblock %}

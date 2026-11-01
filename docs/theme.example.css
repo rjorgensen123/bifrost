@@ -1,0 +1,113 @@
+/* Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.5 */
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* ==========================================================================
+   Bifrost - example colour theme
+   --------------------------------------------------------------------------
+   How to use it:
+     1. Copy this file and change the tokens you want. You can delete the
+        rest: every token you leave out keeps its Bifrost default.
+     2. Upload the file in Admin → Settings (colour theme).
+     3. The save message says how many tokens were stored and lists any that
+        were ignored.
+
+   How it works:
+     - Only custom properties inside :root { } are read. Everything else in
+       the file is ignored, and the uploaded file itself is never served.
+     - Token names may contain lowercase letters, digits and hyphens.
+     - Every value is checked. A value is rejected if it contains url() or a
+       similar image function, @import, expression, javascript:, angle
+       brackets, braces, a semicolon or a backslash, or if it is longer than
+       200 characters.
+     - Accepted tokens are stored in the database and emitted as a :root
+       block after app.css, so they override its defaults.
+     - A new upload replaces the whole stored theme. Resetting the theme on
+       the same page returns to the defaults.
+     - Charts and maps read their colours from these tokens as well. Give
+       --bl-800 as 6-digit hex (#rrggbb): the first chart series gets a
+       translucent fill made by appending an alpha value to that colour.
+
+   The values below are the Bifrost defaults.
+
+   Sections, most important first:
+     1. Brand colours: set these first
+     2. Word mark and surfaces: should match your brand
+     3. Charts and maps
+     4. Functional colours and typography: change only if needed
+   ========================================================================== */
+
+:root{
+
+  /* === 1. Brand colours: set these first ============================== */
+
+  /* Main scale. Build the whole scale around your main brand colour. */
+  --bl-900:#181c56;   /* darkest: text and headings (via --ink) */
+  --bl-800:#3a14c6;   /* main brand colour (via --primary): primary buttons, active items, first chart series */
+  --bl-600:#4e4feb;   /* lighter primary (via --primary-600): button hover, input focus */
+  --bl-500:#8181f1;   /* chart series, some map elements */
+  --bl-300:#b3b3f6;   /* secondary borders and accents */
+  --bl-200:#dfe1fe;   /* borders (via --border), focus ring */
+  --bl-100:#ededfd;   /* light surfaces (via --surface-2), active segment button */
+
+  /* Accent scale. */
+  --gr-700:#14dd86;   /* accent (via --accent): active menu underline, highlights */
+  --gr-500:#64f7af;   /* chart series */
+  --gr-300:#a5face;   /* chart series */
+  --gr-100:#d5ffe9;   /* light accent: transit role badge, text on the Distribution map hub */
+
+  /* Thin strip under the top bar and the title on the About page.
+     It uses literal colours, so rebuild it from your own brand colours. */
+  --grad:linear-gradient(90deg,#3a14c6,#4e4feb 55%,#14dd86);
+
+  /* === 2. Word mark and surfaces: should match your brand ============= */
+
+  /* The "bifrost" word mark in the top bar, the nodes on the physical map,
+     and the hub and peering spokes on the Distribution map. A colour picked
+     from your logo keeps logo and word mark together. */
+  --nf:#1484b6;
+  --nf-ink:#0f6f99;   /* darker variant: word mark hover/active */
+
+  --neu-100:#f8f8ee;  /* page background (via --bg) */
+  --neu-200:#eeefda;  /* neutral surface: customer role badge */
+  --bg:var(--neu-100);
+  --surface:#ffffff;  /* cards and panels */
+  --surface-2:var(--bl-100);
+  --border:var(--bl-200);
+  --ink:var(--bl-900);         /* main text colour */
+  --muted:#6e72a6;             /* muted UI grey: labels, help text, chart axes */
+  --primary:var(--bl-800);
+  --primary-600:var(--bl-600);
+  --accent:var(--gr-700);
+
+  /* === 3. Charts and maps ============================================= */
+
+  /* Chart series reuse the palette above (--bl-*, --gr-*, --muted, --danger),
+     so they follow your brand automatically. These are chart/map specific: */
+  --grid:#ececf8;              /* chart grid lines, snap grid in the map editor */
+  --faint:#9aa0d0;             /* faint text: resolution label, map timestamp, unknown or unmonitored items */
+  /* --flow and --lsp are not defined in app.css; these are the maps' built-in values. */
+  --flow:#7c3aed;              /* traffic-flow overlay (physical map), OSPF path and primary LSP (logical map) */
+  --lsp:#14b8a6;               /* backup LSP (logical map) */
+  --role-nni:#16a085;          /* Distribution map: NNI spokes */
+  --role-customer-ia:#2e86de;  /* Distribution map: customer (IA) spokes */
+  --role-pni-bg:#efe6ff; --role-pni-ink:#6b2bd6;  /* role badge: PNI */
+  --role-cdn-bg:#ffe6f3; --role-cdn-ink:#c1247e;  /* role badge: CDN */
+  --role-peering-bg:#e6fff2;                       /* role badge: peering background */
+
+  /* === 4. Functional colours and typography: change only if needed ===== */
+
+  --danger:#d23a57;   /* semantic red: destructive actions and errors; best left as is */
+  --warning:#e67e22;  /* warnings: WARNING log entries, discovery notes, amber states on the logical map */
+  --ok-ink:#0a8a52;   /* "up"/OK green: text and status dots */
+  --bad-ink:#c0392b;  /* error red: text and status dots (distinct from --danger) */
+  --down:#ff1f3d;     /* link down on maps (sharp red) */
+  /* capacity heat on the physical map (traffic light, green to red): */
+  --cap-low:#2ecc71; --cap-mid:#f1c40f; --cap-high:#e67e22; --cap-crit:#e74c3c;
+  /* Tints for rgba() shadows and row markers. Give them as an r,g,b triple
+     (not hex) and keep them in step with --bl-900, --bl-800 and --danger. */
+  --ink-rgb:24,28,86; --primary-rgb:58,20,198; --danger-rgb:210,58,87;
+  /* Fonts: only Inter is bundled, and url() is rejected, so a theme cannot load
+     web fonts. Other names work only if the font is installed on the viewer's device. */
+  --font:"Inter",Arial,sans-serif;                              /* body text */
+  --font-display:"Founders Grotesk","Inter",Arial,sans-serif;   /* headings and word mark */
+  --r:14px;           /* corner radius */
+}

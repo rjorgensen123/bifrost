@@ -1,0 +1,15 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('nav.inventory') }}{% endblock %}
+{% block body %}
+<section class="card">
+  <h2>{{ t('admin.hosts') }} <span class="sub">{{ t('inventory.hosts_sub') }}</span></h2>
+</section>
+{# Parity-regelen (Roger 2026-07-07): NØYAKTIG samme mal/info som admin — kun knappene gates. #}
+{% include "_hosts.html" %}
+<section class="card bf-mt-14px">
+  <h2>{{ t('categories.title') }} <span class="sub">{{ t('inventory.categories_sub') }}</span></h2>
+  <p class="hint bf-mt-0">{{ t('inventory.categories_hint_html', url=url_for('inventar_kategorier')) }}</p>
+</section>
+{% endblock %}

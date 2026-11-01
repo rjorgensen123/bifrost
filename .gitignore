@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+docker-compose.override.yml
+backup/
+# Gamle lokale merkevare-filer (før branding flyttet til databasen) skal aldri i git.
+brand/

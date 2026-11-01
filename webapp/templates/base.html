@@ -1,0 +1,159 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">{# G-115: CSRF — htmx sender denne som X-CSRFToken #}
+  <title>{{ app_name }} · {% block title %}{% endblock %}</title>
+  <!-- Inter er self-hostet via app.css (@font-face) - ingen ekstern font-CDN. -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/uPlot.min.css') }}">
+  <script src="{{ url_for('static', filename='vendor/uPlot.iife.min.js') }}"></script>
+  {# htmx would add its own <style> for .htmx-indicator; that rule is in app.css, and the CSP allows no
+     style block without the nonce. #}
+  <meta name="htmx-config" content='{"includeIndicatorStyles": false}'>
+  <script src="{{ url_for('static', filename='vendor/htmx.min.js') }}"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  {# G-135: org-tema som validerte :root-tokens fra DB (parset i app'en — vi serverer ALDRI
+     fremmed CSS, så ingenting kan injiseres). Overstyrer app.css sine defaults. #}
+  {% if theme_css %}<style nonce="{{ csp_nonce }}">{{ theme_css }}</style>{% endif %}
+  {% include "_i18n.html" %}
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-wrap">
+    <a class="brand" href="{{ url_for('index') }}" aria-label="{{ t('nav.home_aria') }}">
+      {# G-135: logo fra DB (in-house data-URI) eller innebygd default. Ingen ekstern URL. #}
+      <img class="brand-logo" src="{{ brand_logo_data or url_for('static', filename='router-icon.svg') }}"
+           alt="{{ our_name }}" height="28">
+    </a>
+    <a class="ver {{ 'on' if request.endpoint=='about' }}" href="{{ url_for('about') }}"
+       title="{{ t('nav.about_title', app=app_name) }}"><span class="prod">{{ app_name|lower }}</span><span class="rev">v{{ version }}</span></a>
+    </div>
+    <button class="nav-toggle" type="button" aria-label="{{ t('nav.menu_aria') }}" aria-expanded="false">☰</button>
+    <nav>
+      {% if is_admin %}
+        <a href="{{ url_for('view') }}"  class="{{ 'on' if request.endpoint=='view' }}">{{ t('nav.internet') }}</a>
+        <a href="{{ url_for('backbone') }}" class="{{ 'on' if request.endpoint=='backbone' }}">{{ t('nav.backbone') }}</a>
+        <a href="{{ url_for('flowmap_page') }}" class="{{ 'on' if request.endpoint=='flowmap_page' }}">{{ t('nav.distribution') }}</a>
+        <span class="nav-drop">
+          <a href="{{ url_for('maps.list_maps') }}" class="{{ 'on' if request.blueprint=='maps' }}">{{ t('nav.maps') }} ▾</a>
+          <div class="nav-drop-menu">
+            {% for m in nav_maps %}<a href="{{ url_for('maps.view_map', map_id=m.id) }}">{{ m.name }}</a>{% endfor %}
+            {% if not nav_maps %}<span class="muted">{{ t('nav.no_maps') }}</span>{% endif %}
+            <a href="{{ url_for('maps.list_maps') }}">{{ t('nav.new_edit') }}</a>
+          </div>
+        </span>
+        <span class="nav-drop">
+          <a href="{{ url_for('ospf.index') }}" class="{{ 'on' if request.blueprint=='ospf' }}">{{ t('nav.logical') }} ▾</a>
+          <div class="nav-drop-menu">
+            <a href="{{ url_for('ospf.index') }}">{{ t('nav.auto_area') }}</a>
+            {% for m in nav_logical_maps %}<a href="{{ url_for('ospf.view_map', map_id=m.id) }}">{{ m.name }}</a>{% endfor %}
+            <a href="{{ url_for('ospf.custom_maps') }}">{{ t('nav.new_edit') }}</a>
+          </div>
+        </span>
+        <span class="nav-drop">{# 2.0.0-layout: verktøyene samlet — likt for admin og operatør #}
+          <a href="{{ url_for('history') }}" class="{{ 'on' if request.endpoint in ('history','inventar','logg','account') or request.blueprint=='infoscreen' }}">{{ t('nav.tools') }} ▾</a>
+          <div class="nav-drop-menu">
+            <a href="{{ url_for('history') }}">{{ t('nav.history') }}</a>
+            <a href="{{ url_for('inventar') }}">{{ t('nav.inventory') }}</a>
+            <a href="{{ url_for('logg') }}">{{ t('nav.log') }}</a>
+            <a href="{{ url_for('infoscreen.screens') }}">{{ t('nav.infoscreens') }}</a>
+            {% if auth_user %}<a href="{{ url_for('account') }}">{{ t('nav.my_page') }}</a>{% endif %}
+          </div>
+        </span>
+        <a href="{{ url_for('admin') }}" class="{{ 'on' if request.endpoint=='admin' }}">{{ t('nav.admin') }}</a>
+        <form method="post" action="{{ url_for('logout') }}" class="logout-f"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">{{ t('nav.logout') }}</button></form>
+      {% elif auth_user %}
+        {% if has_internett %}<a href="{{ url_for('view') }}" class="{{ 'on' if request.endpoint=='view' }}">{{ t('nav.internet') }}</a>{% endif %}
+        {% if has_backbone %}<a href="{{ url_for('backbone') }}" class="{{ 'on' if request.endpoint=='backbone' }}">{{ t('nav.backbone') }}</a>{% endif %}
+        {% if has_map %}<a href="{{ url_for('flowmap_page') }}" class="{{ 'on' if request.endpoint=='flowmap_page' }}">{{ t('nav.distribution') }}</a>{% endif %}
+        {% if nav_maps or is_operator %}
+        <span class="nav-drop">
+          {% if nav_maps %}<a href="{{ url_for('maps.view_map', map_id=nav_maps[0].id) }}" class="{{ 'on' if request.blueprint=='maps' }}">{{ t('nav.maps') }} ▾</a>
+          {% else %}<a href="{{ url_for('maps.list_maps') }}" class="{{ 'on' if request.blueprint=='maps' }}">{{ t('nav.maps') }} ▾</a>{% endif %}
+          <div class="nav-drop-menu">
+            {% for m in nav_maps %}<a href="{{ url_for('maps.view_map', map_id=m.id) }}">{{ m.name }}</a>{% endfor %}
+            {% if is_operator %}<a href="{{ url_for('maps.list_maps') }}">{{ t('nav.new_edit') }}</a>{% endif %}
+          </div>
+        </span>
+        {% endif %}
+        {% if is_operator or nav_logical_maps %}
+        <span class="nav-drop">
+          <a href="{{ url_for('ospf.index') if is_operator else url_for('ospf.view_map', map_id=nav_logical_maps[0].id) }}" class="{{ 'on' if request.blueprint=='ospf' }}">{{ t('nav.logical') }} ▾</a>
+          <div class="nav-drop-menu">
+            {% if is_operator %}<a href="{{ url_for('ospf.index') }}">{{ t('nav.auto_area') }}</a>{% endif %}
+            {% for m in nav_logical_maps %}<a href="{{ url_for('ospf.view_map', map_id=m.id) }}">{{ m.name }}</a>{% endfor %}
+            {% if is_operator %}<a href="{{ url_for('ospf.custom_maps') }}">{{ t('nav.new_edit') }}</a>{% endif %}
+          </div>
+        </span>
+        {% endif %}
+        {% if is_operator %}
+        <span class="nav-drop">{# 2.0.0-layout (Roger): verktøyene samlet — kjernen alene på toppen #}
+          <a href="{{ url_for('history') }}" class="{{ 'on' if request.endpoint in ('history','inventar','logg','account') or request.blueprint=='infoscreen' }}">{{ t('nav.tools') }} ▾</a>
+          <div class="nav-drop-menu">
+            <a href="{{ url_for('history') }}">{{ t('nav.history') }}</a>
+            <a href="{{ url_for('inventar') }}">{{ t('nav.inventory') }}</a>
+            <a href="{{ url_for('logg') }}">{{ t('nav.log') }}</a>
+            <a href="{{ url_for('infoscreen.screens') }}">{{ t('nav.infoscreens') }}</a>
+            <a href="{{ url_for('account') }}">{{ t('nav.my_page') }}</a>
+          </div>
+        </span>
+        {% else %}
+        <a href="{{ url_for('account') }}" class="{{ 'on' if request.endpoint=='account' }}">{{ t('nav.my_page') }}</a>
+        {% endif %}
+        <form method="post" action="{{ url_for('logout') }}" class="logout-f"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">{{ t('nav.logout_user', user=auth_user) }}</button></form>
+      {% endif %}
+    </nav>
+  </header>
+  {# G-291/1.8.4: kart-sider setter mainclass="wide" → kartet kan skalere OPP forbi 1100px-capen #}
+  <main class="{% block mainclass %}{% endblock %}">{% block body %}{% endblock %}</main>
+  <footer class="appfoot">
+    <span>Bifrost · {{ t('footer.rights') }} · © {{ year }} Roger Jorgensen · <a href="mailto:rogerj@gmail.com">rogerj@gmail.com</a></span>
+    <span class="dim">{{ app_name }} v{{ version }}</span>
+  </footer>
+  <script src="{{ url_for('static', filename='charts.js') }}"></script>
+  <script src="{{ url_for('static', filename='bg_live.js') }}"></script>{# R-083: delt live-bakgrunn (kartfliser) for den delte kart-kjernen (map_renderer.js + adaptere) #}
+  <script src="{{ url_for('static', filename='ui.js') }}"></script>{# G-136: CSP-trygge delegerte hendelser #}
+  <script nonce="{{ csp_nonce }}">
+  window.APP_TZ = {{ app_tz_name|tojson }};   // G-152: grafer formaterer tid i appens tidssone
+  // G-115: send CSRF-token som X-CSRFToken-header på alle htmx-forespørsler (POST/DELETE/…).
+  document.body.addEventListener("htmx:configRequest", function (e) {
+    var m = document.querySelector('meta[name=csrf-token]');
+    if (m) e.detail.headers["X-CSRFToken"] = m.content;
+  });
+  // G-115: rå fetch() (kart-editor, bakgrunns-side) bruker ikke htmx — wrap fetch så ALLE
+  // ikke-GET-kall automatisk får X-CSRFToken. (sendBeacon kan ikke sette headere -> token i body.)
+  (function () {
+    var _fetch = window.fetch;
+    window.fetch = function (input, init) {
+      init = init || {};
+      var m = (init.method || (input && input.method) || "GET").toUpperCase();
+      if (m !== "GET" && m !== "HEAD") {
+        var t = document.querySelector('meta[name=csrf-token]');
+        if (t) {
+          init.headers = new Headers(init.headers || {});
+          if (!init.headers.has("X-CSRFToken")) init.headers.set("X-CSRFToken", t.content);
+        }
+      }
+      return _fetch.call(this, input, init);
+    };
+  })();
+  // 1.8.0 (Gitea #12): mobil nav-hamburger — vis/skjul nav-panelet.
+  (function () {
+    var t = document.querySelector(".nav-toggle"), n = document.querySelector(".topbar nav");
+    if (t && n) t.addEventListener("click", function () {
+      var open = n.classList.toggle("open");
+      t.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+  })();
+  // G-64: «velg alle» per tilgangs-bolk -- huker av/på alle bokser i samme fieldset.
+  function toggleGrantGroup(cb) {
+    cb.closest('.grant-group').querySelectorAll('input[type=checkbox]:not(.grant-all)')
+      .forEach(function (b) { b.checked = cb.checked; });
+  }
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

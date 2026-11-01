@@ -1,0 +1,77 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">{# R-014: trengs for POST fra public-siden (f.eks. google_session) #}
+  <meta http-equiv="refresh" content="300">   {# auto-oppdater hvert 5. min (G-043) #}
+  <title>{{ map.name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  {# G-85/G-135: public-kart er frittstående (ikke base.html) — emitt org-temaet (validerte
+     DB-tokens, ingen fremmed CSS) her også. #}
+  {% if theme_css %}<style nonce="{{ csp_nonce }}">{{ theme_css }}</style>{% endif %}
+  <style nonce="{{ csp_nonce }}">
+    {# R-071: map.background interpoleres rått i CSS her — OK i dag KUN fordi verdien er låst
+       til default ('#0d132d', ingen skrivesti finnes). Får background noensinne en skrivesti,
+       MÅ verdien valideres server-side (^#[0-9a-fA-F]{3,8}$) før den brukes her. #}
+    html,body{margin:0;height:100%;background:{{ map.background }}}
+    #map-wrap{position:relative;width:100%;height:100vh}
+    #map-svg{width:100%;height:100%;display:block}
+    /* 1.8.2: lesbar på LYS kartbakgrunn (var --bl-200 fra mørk-æraen — nesten usynlig på lys);
+       + klikkbar tilbake til innlogget visning (ikke på infoscreen-slides). */
+    .pub-title{position:absolute;top:8px;left:12px;color:var(--muted);
+               font:600 14px/1.3 "Inter",system-ui,sans-serif;opacity:.9;z-index:5}
+    .pub-title a{color:inherit;text-decoration:none}
+    .pub-title a:hover{text-decoration:underline;color:var(--ink)}
+  </style>
+  {% include "_i18n.html" %}
+</head>
+<body>
+  <div id="map-wrap">
+    {# 1.8.2 (Roger): kartnavnet lenker tilbake til den innloggede visningen av samme kart.
+       Infoscreen-slides (data_api satt) beholder ren tekst — kiosken skal ikke lenke til login. #}
+    <div class="pub-title">{% if not data_api and can_open_internal %}<a href="{{ url_for('maps.view_map', map_id=map.id) }}"
+      title="{{ t('public.open_internal') }}">{{ map.name }}</a>{% else %}{{ map.name }}{% endif %}</div>
+    {# G-155: public-kart arver ikke base.html-footeren — samme copyright-linje påpekes her. #}
+    {# G-155: samme copyright-linje som footeren på alle andre sider (public arver ikke base.html). #}
+    <div class="bf-pos-absolute bf-bottom-6px bf-left-12px bf-font-600-12px-1_3-system-ui-sans-serif bf-c-muted bf-op-_8 bf-z-5">
+      Bifrost · {{ t('footer.rights') }} · © {{ year }} Roger Jorgensen · <a href="mailto:rogerj@gmail.com">rogerj@gmail.com</a></div>
+    {# data_api kan overstyres (G-193 infoscreen: token-gated anonym live-data). Default = public-ruta. #}
+    <svg id="map-svg" viewBox="0 0 {{ map.width }} {{ map.height }}"
+         data-api="{{ data_api or url_for('public_map_data', map_id=map.id) }}"
+         role="img" aria-label="{{ t('public.aria', name=map.name) }}"></svg>
+    <div id="map-tip" class="map-tip"></div>
+  </div>
+  <script id="map-data" type="application/json" nonce="{{ csp_nonce }}">
+{# R-071: background/node_size via |tojson. R-014: has_bg/bg_url/bg_attr som i map_view.html,
+   så snapshot-bakgrunn og attribution også vises på public-siden (server-gating: maps.py). #}
+{"canvas": {"width": {{ map.width }}, "height": {{ map.height }}, "background": {{ map.background|tojson }}, "node_size": {{ (map.node_size or 'L')|tojson }}, "bg_opacity": {{ map.bg_opacity if map.bg_opacity is not none else 22 }}},
+ "has_bg": {{ 'true' if map.bg_zoom is not none else 'false' }},
+ "bg_url": {{ url_for('maps.background_png', map_id=map.id)|tojson }},
+ "bg_attr": {{ (map.bg_attribution or '')|tojson }},
+ "bg_mode": {{ (map.bg_mode or 'snapshot')|tojson }},
+ "bg_live": {{ bg_live|tojson }},
+ "google_session": {{ url_for('maps.google_tile_session', map_id=map.id)|tojson }},
+ "nodes": {{ nodes|tojson }}, "links": {{ links|tojson }},
+ "flow_max_paths": {{ flow_max_paths }}}
+  </script>
+  <script nonce="{{ csp_nonce }}">
+  function fmtBps(v){ if(v==null||isNaN(v))return "—";
+    const u=["bps","Kbps","Mbps","Gbps","Tbps"]; let i=0;
+    while(Math.abs(v)>=1000&&i<u.length-1){v/=1000;i++;}
+    return v.toFixed(v>=100||i===0?0:1)+" "+u[i]; }
+  </script>
+  <script src="{{ url_for('static', filename='bg_live.js') }}"></script>{# R-083: public-siden extender ikke base.html — last delt live-bakgrunn eksplisitt #}
+  {# G-184 (G-168 fase 3): public fysisk visning på den DELTE kart-kjernen.
+     Ingen modal/flyt/tidsslider på public → de wirings hoppes trygt over. #}
+  {% if data_api %}<script nonce="{{ csp_nonce }}">
+    // 1.8.3 (G-290): kiosk-modus (infoscreen-slide) — kjernen dropper pan/zoom + zoom-knapper og
+    // viser HELE kartet tilpasset rammen (ingen auto-innzoom). Innholdet er ren visning (bevisst).
+    window.BIFROST_KIOSK = true;
+  </script>{% endif %}
+  <script src="{{ url_for('static', filename='map_renderer.js') }}"></script>
+  <script src="{{ url_for('static', filename='map_physical.js') }}"></script>
+</body>
+</html>

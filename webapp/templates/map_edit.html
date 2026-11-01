@@ -1,0 +1,190 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('mapedit.title', name=map.name) }}{% endblock %}
+{% block body %}
+{# G-190: kontroller + kart i ETT kort (hvit ramme), som det logiske kartet. #}
+<section class="card">
+  <h2><span id="map-name" class="editable-name" title="{{ t('mapedit.name_title') }}">{{ map.name }}</span> <span class="sub">{{ t('mapedit.sub', seed=map.layout_seed) }}</span></h2>
+{# G-233: fysiske SPESIAL-knapper ØVERST (over den felles låste raden) — samlet her. Logisk har sine
+   egne spesial-knapper øverst (metric/flyt). De felles knappene ligger i partialen under. #}
+<div class="controls map-editbar" id="phys-special">
+  <div class="seg" title="{{ t('mapedit.link_title') }}">
+    <button id="link-btn" type="button" class="ghost">{{ t('mapedit.make_link') }}</button>
+  </div>
+  {# G-233: cat-drop er en absolutt-posisjonert dropdown — IKKE inni .seg (overflow:hidden klipper menyen). #}
+  <details class="cat-drop" id="ext-show">
+    <summary>{{ t('categories.title') }} ▾</summary>
+    <div class="cat-drop-menu">
+      {% for r in ext_roles %}
+      <label><input type="checkbox" class="show-ext" value="{{ r }}" {{ 'checked' if map.show_external and r not in (map.hidden_ext_roles or []) }}> {{ role_label(r) }}</label>
+      {% endfor %}
+    </div>
+  </details>
+  <div class="seg" title="{{ t('mapedit.res_size_title') }}">
+    <select id="res-sel" class="seg-sel" title="{{ t('mapedit.res_title') }}">
+      <option value="1200x700">1200×700</option>
+      <option value="1280x720">1280×720</option>
+      <option value="1600x900">1600×900</option>
+      <option value="1920x1080">1920×1080</option>
+      <option value="2560x1440">2560×1440</option>
+      <option value="3840x2160">3840×2160</option>
+      <option value="custom">{{ t('mapedit.custom') }}</option>
+    </select>
+    <button type="button" id="mapsize-btn" title="{{ t('mapedit.node_size_title') }}">{{ t('mapedit.node_medium') }}</button>
+  </div>
+  {# G-233: Forhåndsvis + Rediger ved siden av hverandre, øverst til høyre (samme som logisk). #}
+  <div class="seg bolke-right" title="{{ t('mapedit.preview_edit_title') }}">
+    <a class="keep-scratch" href="{{ url_for('maps.view_map', map_id=map.id) }}">{{ t('mapedit.preview') }}</a>
+    <button type="button" id="eb-edit-toggle">{{ t('common.edit') }}</button>
+  </div>
+</div>
+{# G-233: FELLES, LÅST redigerings-rad fra delt partial — identisk på alle kart (toggle-basert). #}
+{% with editbar_map_id = map.id, editbar_status = false %}{% include "_map_editbar.html" %}{% endwith %}
+{# G-190: status på egen rad (så voksende status-tekst ikke wrapper baren). #}
+<div class="controls"><span id="save-status" class="spin"></span></div>
+{# G-201 Stage 2: SENTRAL plasserings-motor — test-panel m/ av/på pr. bit (placement.py). #}
+<details class="controls bf-d-block" id="smart-layout-panel">
+  <summary class="bf-cur-pointer bf-fw-600">{{ t('mapedit.smart') }} ▾</summary>
+  <div class="bf-d-flex bf-fw-wrap bf-gap-10px bf-mt-6px bf-ai-center">
+    <label class="hint"><input type="checkbox" class="smt" value="gps_seed" checked> GPS-seed</label>
+    <label class="hint"><input type="checkbox" class="smt" value="cluster_by_site" checked> Site-clustering</label>
+    <label class="hint"><input type="checkbox" class="smt" value="cardinal_anchors" checked> Cardinal-ankre</label>
+    <label class="hint"><input type="checkbox" class="smt" value="hub_center" checked> Hub i senter</label>
+    <label class="hint"><input type="checkbox" class="smt" value="redundancy_pairs" checked> Redundans-par</label>
+    <label class="hint"><input type="checkbox" class="smt" value="intra_cluster" checked> Intra-cluster</label>
+    <label class="hint"><input type="checkbox" class="smt" value="overlap_resolve" checked> Overlap-resolve</label>
+    <label class="hint"><input type="checkbox" class="smt" value="grid_snap" checked> Grid-snap</label>
+    <button type="button" id="smart-run">{{ t('mapedit.smart_run') }}</button>
+  </div>
+</details>
+<script nonce="{{ csp_nonce }}">
+(function () {
+  var btn = document.getElementById('smart-run');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var body = new URLSearchParams();
+    document.querySelectorAll('#smart-layout-panel .smt').forEach(function (c) {
+      body.append(c.value, c.checked ? '1' : '0');
+    });
+    btn.disabled = true;
+    fetch("{{ url_for('maps.smart_layout_route', map_id=map.id) }}", {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.error) { alert(d.error); btn.disabled = false; return; }
+        alert({{ t('mapedit.smart_done')|tojson }}.replace('{placed}', d.placed).replace('{clusters}', d.clusters)
+              .replace('{overlap}', d.overlap).replace('{gps}', d.seeded_gps));
+        location.reload();
+      })
+      .catch(function () { alert({{ t('common.network_error')|tojson }}); btn.disabled = false; });
+  });
+})();
+</script>
+{# G-233: spesial-kontrollene over (Lag link / motparter / kategorier / oppløsning / nodestørrelse)
+   er flyttet opp i topp-raden #phys-special. Her står kun redigerings-hintet. #}
+<div class="controls"><span id="edit-hint" class="hint">{{ t('mapedit.edit_hint') }}</span></div>
+<div id="link-picker" class="card bf-pos-relative" hidden>
+  <div class="row bf-jc-space-between">
+    <strong id="lp-title">{{ t('mapedit.pick_iface') }}</strong>
+    <span>
+      <button type="button" class="ghost sm" id="lp-likely">{{ t('mapedit.likely') }}</button>
+      <button type="button" class="ghost sm" id="lp-all">{{ t('mapedit.show_all') }}</button>
+      <button type="button" class="ghost sm danger" id="lp-cancel">{{ t('common.cancel') }}</button>
+    </span>
+  </div>
+  <div id="lp-list"></div>
+</div>
+
+<!-- G-87/89/90: kontekstmeny for klikk på node/link i kartet -->
+<div id="ctx-menu" class="card bf-pos-absolute bf-z-60 bf-minw-220px bf-p-8px" hidden></div>
+
+  <div id="map-wrap" class="map-wrap">
+    <svg id="edit-svg" width="100%" viewBox="0 0 {{ map.width }} {{ map.height }}"
+         data-relayout-url="{{ url_for('maps.auto_layout', map_id=map.id) }}"
+         class="bf-touch-action-none"></svg>
+  </div>
+</section>
+
+<section class="card">
+  <h2>{{ t('mapedit.hosts_on_map') }}</h2>
+  <table class="iface-table"><tbody>
+  {% for n in nodes %}
+    <tr><td>{{ n.label or n.name }}</td><td class="addr">{{ n.address }}</td>
+      <td class="right"><button class="ghost sm danger" title="{{ t('mapedit.remove_title') }}"
+        hx-post="{{ url_for('maps.remove_node', map_id=map.id, node_id=n.id) }}"
+        hx-target="body" hx-confirm="{{ t('mapedit.remove_confirm', name=n.label or n.name) }}">✕</button></td></tr>
+  {% endfor %}
+  </tbody></table>
+  {% if available %}
+  <div class="row">
+    <select id="add-host-sel">{% for h in available %}<option value="{{ h.id }}">{{ h.name }} · {{ h.address }}</option>{% endfor %}</select>
+    <button type="button" id="add-host-btn" class="ghost">+ {{ t('mapedit.add_host') }}</button>
+  </div>
+  {% endif %}
+</section>
+
+{# 2.0.0: per-bruker-tilgang er borte — kart-tilgang settes per GRUPPE under Admin → Grupper. #}
+
+<section class="card">
+  <h2>{{ t('mapedit.links') }} <span class="sub">{{ t('mapedit.links_sub') }}</span></h2>
+  <table class="iface-table">
+    <thead><tr><th>{{ t('mapedit.col_on') }}</th><th>{{ t('mapedit.col_from') }}</th><th>{{ t('categories.col_interface') }}</th><th>{{ t('mapedit.col_to') }}</th><th>{{ t('grp.col_type') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for l in links %}
+      <tr><td><input type="checkbox" class="link-tgl" data-id="{{ l.id }}" {{ 'checked' if l.enabled }}></td>
+        <td>{{ l.if_name or l.if_index }}</td>
+        <td class="mono">{{ role_label(l.role) }}{% if l.counterparty %} · {{ l.counterparty }}{% endif %}</td>
+        <td>
+          {% if l.kind == 'external' %}
+            <form class="row bf-gap-4px bf-m-0"
+                  hx-post="{{ url_for('maps.set_link_label', map_id=map.id, link_id=l.id) }}" hx-target="body">
+              <input name="label" value="{{ l.b_external or '' }}" class="bf-minw-120px" title="{{ t('mapedit.ext_label') }}">
+              <button class="ghost sm" type="submit" title="{{ t('mapedit.save_label') }}">↵</button>
+            </form>
+          {% else %}<span class="muted">({{ t('mapedit.internal') }})</span>{% endif %}
+        </td>
+        <td><span class="role role-{{ l.role }}">{{ l.kind }}</span>{% if l.manual %}
+            <span class="tag muted" title="{{ t('mapedit.manual_title') }}">{{ t('mapedit.manual') }}</span>{% endif %}</td>
+        <td class="right"><button class="ghost sm danger" type="button"
+              hx-post="{{ url_for('maps.delete_link', map_id=map.id, link_id=l.id) }}" hx-target="body"
+              hx-confirm="{{ t('mapedit.remove_link_confirm') }}">✕</button></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script id="map-data" type="application/json" nonce="{{ csp_nonce }}">
+{# R-071: background/node_size via |tojson (uten manuelle anførselstegn) som resten av blokken #}
+{"map_id": {{ map.id }}, "canvas": {"width": {{ map.width }}, "height": {{ map.height }}, "background": {{ map.background|tojson }}, "node_size": {{ (map.node_size or 'L')|tojson }}, "grid_size": {{ map.grid_size or 0 }}, "bg_opacity": {{ map.bg_opacity if map.bg_opacity is not none else 22 }}},
+ "nodes": {{ nodes|tojson }}, "links": {{ links|tojson }}, "available": {{ available|tojson }},
+ "has_bg": {{ 'true' if map.bg_zoom is not none else 'false' }},
+ "is_scratch": {{ 'true' if map.status == 'scratch' else 'false' }},
+ "bg_mode": {{ (map.bg_mode or 'snapshot')|tojson }},
+ "bg_live": {{ bg_live|tojson }},
+ "google_session": {{ url_for('maps.google_tile_session', map_id=map.id)|tojson }},
+ "bg_url": {{ url_for('maps.background_png', map_id=map.id)|tojson }},
+ "bg_attr": {{ (map.bg_attribution or '')|tojson }},
+ "urls": {"save": {{ url_for('maps.save_map', map_id=map.id)|tojson }},
+          "scratch_discard": {{ url_for('maps.discard_scratch', map_id=map.id)|tojson }},
+          "link": {{ url_for('maps.create_link', map_id=map.id)|tojson }},
+          "candidates": {{ url_for('maps.link_candidates', map_id=map.id)|tojson }},
+          "edit": {{ url_for('maps.edit_map', map_id=map.id)|tojson }},
+          "publish": {{ url_for('maps.publish_map', map_id=map.id)|tojson }},
+          "view": {{ url_for('maps.view_map', map_id=map.id)|tojson }},
+          "auto_layout": {{ url_for('maps.auto_layout', map_id=map.id)|tojson }},
+          "add_host": {{ url_for('maps.add_host_to_map', map_id=map.id)|tojson }},
+          "rename": {{ url_for('maps.rename_map', map_id=map.id)|tojson }},
+          "node_label": {{ url_for('maps.set_node_label', map_id=map.id, node_id=0)|tojson }},
+          "node_device": {{ url_for('maps.swap_node_device', map_id=map.id, node_id=0)|tojson }},
+          "node_remove": {{ url_for('maps.remove_node', map_id=map.id, node_id=0)|tojson }},
+          "node_gps": {{ url_for('maps.node_gps_info', map_id=map.id, node_id=0)|tojson }},
+          "link_delete": {{ url_for('maps.delete_link', map_id=map.id, link_id=0)|tojson }},
+          "discard_draft": {{ url_for('maps.discard_draft', map_id=map.id)|tojson }}}}
+</script>
+{% endblock %}
+{% block scripts %}
+{# G-184 (G-168 fase 3): fysisk editor på den DELTE kart-kjernen (map_renderer.js + map_physical_edit.js). #}
+<script src="{{ url_for('static', filename='map_renderer.js') }}"></script>
+<script src="{{ url_for('static', filename='map_physical_edit.js') }}"></script>
+{% endblock %}

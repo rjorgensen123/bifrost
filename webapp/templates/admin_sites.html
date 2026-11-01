@@ -1,0 +1,53 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('sites.title') }}{% endblock %}
+{% block body %}
+<section class="card">
+  <h2>{{ t('sites.title') }} <span class="sub">{{ t('sites.sub') }}</span></h2>
+  <p class="hint bf-mt-0">{{ t('sites.intro_html') }}</p>
+  {% if msg %}<p class="hint bf-c-ok-ink">✓ {{ msg }}</p>{% endif %}
+  {% if not netbox_ok %}<p class="hint">{{ t('sites.no_netbox') }}</p>{% endif %}
+
+  {% if sites %}
+  <table class="iface-table">
+    <tr><th>{{ t('sites.col_site') }}</th><th>GPS</th><th>NetBox</th><th>{{ t('sites.col_devices') }}</th><th></th></tr>
+    {% for s in sites %}
+    <tr>
+      <td title="{{ s.name }}">{{ s.name|truncate(30, true, '…') }}{% if s.slug %}
+          <span class="mono hint">({{ s.slug|truncate(30, true, '…') }})</span>{% endif %}</td>
+      <td class="mono">{% if s.lat is not none and s.lon is not none %}<a
+          href="https://www.openstreetmap.org/?mlat={{ s.lat }}&amp;mlon={{ s.lon }}#map=15/{{ s.lat }}/{{ s.lon }}"
+          target="_blank" rel="noopener" title="{{ t('sites.open_position') }}">{{ '%.5f'|format(s.lat) }}, {{ '%.5f'|format(s.lon) }}</a>{% else %}<span class="hint">{{ t('hosts.no_gps') }}</span>{% endif %}</td>
+      <td class="mono hint">{{ ('#' ~ s.netbox_id) if s.netbox_id else '—' }}</td>
+      <td>
+        {% if s.host_count %}
+        <details class="site-enh">
+          <summary class="bf-cur-pointer" hx-get="{{ url_for('admin_site_hosts', site_id=s.id) }}"
+                   hx-trigger="click once" hx-target="#sh-{{ s.id }}" hx-swap="innerHTML">{{ t('sites.device_count', n=s.host_count) }}</summary>
+          <div id="sh-{{ s.id }}" class="hint"></div>
+        </details>
+        {% else %}<span class="hint">0</span>{% endif %}
+      </td>
+      <td class="bf-ws-nowrap">
+        <form hx-post="{{ url_for('admin_site_update', site_id=s.id) }}" hx-target="body" class="bf-d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="ghost sm" {{ 'disabled' if (not s.netbox_id or not netbox_ok) }}
+                  title="{{ t('sites.update_title') }}">↻</button>
+        </form>
+        <form hx-post="{{ url_for('admin_site_delete', site_id=s.id) }}" hx-target="body" class="bf-d-inline"
+              hx-confirm="{{ t('sites.delete_confirm', name=s.name) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="ghost sm danger" title="{{ t('sites.delete_title') }}">✕</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="hint">{{ t('sites.none') }}</p>
+  {% endif %}
+
+  <p class="hint bf-mt-12px">↩ <a href="{{ url_for('admin') }}">{{ t('common.back_to_admin') }}</a></p>
+</section>
+{% endblock %}

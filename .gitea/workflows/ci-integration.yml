@@ -1,0 +1,230 @@
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2
+# Bifrost CI — Tier C (integrasjon): bygger imagene + booter stacken (MOCK/DEMO) + treffer /healthz.
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Fanger boot-/spørrings-/migrerings-regresjoner som A+B (syntaks+enhetstester) ikke kan. Kjører på
+# alle pusher til main/review + manuell dispatch (triggerne under avgrenser). Isolert (eget -p-prosjekt
+# + egen port), rydder med down -v. Ingen cron.
+name: CI integrasjon (Tier C)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, review]
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    container:
+      image: docker:27-cli
+      # NB: docker.sock mountes IKKE her — act_runner mounter den automatisk inn i jobb-containeren.
+      # Eksplisitt mount i tillegg gir «Duplicate mount point: /var/run/docker.sock».
+    steps:
+      - name: Bygg + boot + healthz (isolert)
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          apk add --no-cache git curl ca-certificates docker-cli-compose
+
+          # --- Klon: vert fra GITHUB_SERVER_URL (ikke hardkodet), TLS verifiseres ---
+          HOST="${GITHUB_SERVER_URL#*://}"
+          git clone \
+            "https://x-access-token:${TOKEN}@${HOST}/${GITHUB_REPOSITORY}.git" src
+          cd src && git checkout "${GITHUB_SHA}"
+
+          # --- Isolert compose-prosjekt + egne porter, MOCK/DEMO (rører ikke 8123/8345) ---
+          PROJ="bifrost-ci-${GITHUB_RUN_ID}"
+          cp .env.example .env
+          {
+            echo "DB_PASSWORD=ci-test-$$"
+            echo "DEMO_MODE=1"
+            echo "ADMIN_PASSWORD=ci-admin-$$"
+            echo "PORT=8456"
+          } >> .env
+
+          cleanup() { docker compose -p "${PROJ}" down -v >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
+          echo "== docker compose build =="
+          docker compose -p "${PROJ}" build
+
+          # --- Start db FØRST + vent på healthy i en generøs løkke (i stedet for å la compose sin
+          #     depends_on-timeout feile hardt hvis db-init er treig under CI-last). Dumper db-loggen
+          #     hvis den aldri blir healthy, så årsaken (OOM/timeout/init-feil) er synlig. ---
+          echo "== start db + vent på healthy =="
+          docker compose -p "${PROJ}" up -d db
+          dbok=false
+          for i in $(seq 1 60); do
+            h="$(docker inspect --format '{{.State.Health.Status}}' "$(docker compose -p "${PROJ}" ps -q db)" 2>/dev/null || echo none)"
+            [ "${h}" = "healthy" ] && { dbok=true; break; }
+            sleep 3
+          done
+          if [ "${dbok}" != "true" ]; then
+            echo "❌ db ble ikke healthy (status: ${h:-?}) — db-logg + ps:"
+            docker compose -p "${PROJ}" ps 2>&1 || true
+            docker compose -p "${PROJ}" logs db 2>&1 | tail -80
+            exit 1
+          fi
+          echo "db healthy."
+
+          # --no-deps: vi har ALT ventet på db healthy i løkka over, så compose skal IKKE re-evaluere
+          # db-ens depends_on-helse her. Uten dette feilet steget når en enkelt pg_isready bommet under
+          # CI-last (db «Error» et øyeblikk → «dependency failed to start: db is unhealthy», selv om db
+          # ble healthy rett etterpå). App-ens bring_up + healthz-løkka under håndterer db-readiness.
+          echo "== start webapp + poller =="
+          docker compose -p "${PROJ}" up -d --no-deps webapp poller
+
+          # --- Vent på /healthz inni webapp-containeren (unngår host-nettverk via socket-mount) ---
+          echo "== venter på /healthz =="
+          ok=false
+          for i in $(seq 1 45); do
+            if docker compose -p "${PROJ}" exec -T webapp \
+                 python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8123/healthz',timeout=5).status==200 else 1)" 2>/dev/null; then
+              ok=true; break
+            fi
+            sleep 4
+          done
+          if [ "${ok}" != "true" ]; then
+            echo "❌ /healthz svarte ikke innen tidsfristen — siste webapp-logg:"
+            docker compose -p "${PROJ}" logs webapp 2>&1 | tail -60
+            exit 1
+          fi
+          echo "✅ /healthz OK — appen bygger, booter og svarer."
+
+          # --- G-269: syntetisk kart-gating-test (kjører INNE i webapp-containeren mot den bootede
+          #     DB-en). Fanger at kart-MUTASJONER avvises i feil tilstand (publisert/utenfor edit-mode/
+          #     ikke-admin) for BÅDE fysisk og logisk — klassen som slapp G-266/267/268 forbi. ---
+          echo "== G-269: kart-gating-test =="
+          if ! docker compose -p "${PROJ}" exec -T webapp python tests/citest_map_gating.py; then
+            echo "❌ kart-gating-test feilet — siste webapp-logg:"
+            docker compose -p "${PROJ}" logs webapp 2>&1 | tail -40
+            exit 1
+          fi
+          echo "✅ kart-gating-test OK."
+
+          # --- 2.0.0 (G-285): gruppe-/ACL-gating-test (spec §11 A1-A9) — deny-baseline,
+          #     operatør-sonen, kart-write-grant + kart-lås, brukere-write-umulig,
+          #     break-glass, legacy-migrering, sesjons-revokering, G-279 graf-zoom-scope. ---
+          echo "== 2.0.0: gruppe/ACL-gating-test =="
+          if ! docker compose -p "${PROJ}" exec -T webapp python tests/citest_acl_gating.py; then
+            echo "❌ ACL-gating-test feilet — siste webapp-logg:"
+            docker compose -p "${PROJ}" logs webapp 2>&1 | tail -40
+            exit 1
+          fi
+          echo "✅ ACL-gating-test OK."
+
+          # --- 2.1.0 (Gitea #14): FULL passkey-seremoni med soft-autentikator — ekte
+          #     krypto (P-256/CBOR/ECDSA) gjennom ekte ruter: registrering, innlogging,
+          #     sesjon, replay-/klone-/origin-vern, umiddelbar fjerning. ---
+          echo "== 2.1.0: passkey-seremoni-test =="
+          if ! docker compose -p "${PROJ}" exec -T webapp python tests/citest_passkey.py; then
+            echo "❌ passkey-seremoni-test feilet — siste webapp-logg:"
+            docker compose -p "${PROJ}" logs webapp 2>&1 | tail -40
+            exit 1
+          fi
+          echo "✅ passkey-seremoni-test OK."
+
+          # --- 2.2.0 (G-320): konto-eierskaps-invariant — konto-spesifikk data (passkeys,
+          #     sesjoner) kan ALDRI nås/endres på tvers av kontoer via /account/*-rutene. ---
+          echo "== 2.2.0: konto-eierskaps-test (G-320) =="
+          if ! docker compose -p "${PROJ}" exec -T webapp python tests/citest_account_ownership.py; then
+            echo "❌ konto-eierskaps-test feilet — siste webapp-logg:"
+            docker compose -p "${PROJ}" logs webapp 2>&1 | tail -40
+            exit 1
+          fi
+          echo "✅ konto-eierskaps-test OK."
+
+          # --- 2.3.0 (G-368): draft→live-merge-semantikk — publiser/gjenopprett/forkast +
+          #     dobbeltklikk-/stale-guardene (R-004/R-006). Gating testes over; dette er INNHOLDET. ---
+          echo "== 2.3.0: kart-merge-test (G-368) =="
+          if ! docker compose -p "${PROJ}" exec -T webapp python tests/citest_map_merge.py; then
+            echo "❌ kart-merge-test feilet — siste webapp-logg:"
+            docker compose -p "${PROJ}" logs webapp 2>&1 | tail -40
+            exit 1
+          fi
+          echo "✅ kart-merge-test OK."
+
+          # --- 2.3.0 (G-368): jobb-kø-samtidighet — enqueue-dedup, stale-requeue (R-047),
+          #     finaliserings-guard (R-046). ---
+          echo "== 2.3.0: jobb-kø-test (G-368) =="
+          if ! docker compose -p "${PROJ}" exec -T webapp python tests/citest_jobqueue.py; then
+            echo "❌ jobb-kø-test feilet — siste webapp-logg:"
+            docker compose -p "${PROJ}" logs webapp 2>&1 | tail -40
+            exit 1
+          fi
+          echo "✅ jobb-kø-test OK."
+
+          # --- 2.3.0 (G-368): rate-SQL mot ekte DB — delta→bps, reset→hull (G-305),
+          #     per-interface-tak (G-346), flat backstop (G-306). SKIPper pent uten if_sample. ---
+          echo "== 2.3.0: rate-SQL-test (G-368) =="
+          if ! docker compose -p "${PROJ}" exec -T webapp python tests/citest_rates.py; then
+            echo "❌ rate-SQL-test feilet — siste webapp-logg:"
+            docker compose -p "${PROJ}" logs webapp 2>&1 | tail -40
+            exit 1
+          fi
+          echo "✅ rate-SQL-test OK."
+
+          # --- Den anonyme infoskjermen (/screen/<token>): tilgangsgrense + kun visningsfelter. ---
+          echo "== infoskjerm-test =="
+          if ! docker compose -p "${PROJ}" exec -T webapp python tests/citest_infoscreen.py; then
+            echo "❌ infoskjerm-test feilet — siste webapp-logg:"
+            docker compose -p "${PROJ}" logs webapp 2>&1 | tail -40
+            exit 1
+          fi
+          echo "✅ infoskjerm-test OK."
+
+          # --- OSPF clean-up when a host does not answer: the others are still cleaned up. ---
+          echo "== ospf-opprydding-test =="
+          if ! docker compose -p "${PROJ}" exec -T webapp python tests/citest_ospf_cleanup.py; then
+            echo "❌ ospf-opprydding-test feilet — siste webapp-logg:"
+            docker compose -p "${PROJ}" logs webapp 2>&1 | tail -40
+            exit 1
+          fi
+          echo "✅ ospf-opprydding-test OK."
+
+          # --- What the map editors send is checked in full: wrong shape → 400, nothing written, logged. ---
+          echo "== kart-input-test =="
+          if ! docker compose -p "${PROJ}" exec -T webapp python tests/citest_map_input.py; then
+            echo "❌ kart-input-test feilet — siste webapp-logg:"
+            docker compose -p "${PROJ}" logs webapp 2>&1 | tail -40
+            exit 1
+          fi
+          echo "✅ kart-input-test OK."
+
+          # --- Guards that must stop bad input: CSRF, open redirect, escaping of hostile names. ---
+          echo "== input-vakt-test =="
+          if ! docker compose -p "${PROJ}" exec -T webapp python tests/citest_input_guards.py; then
+            echo "❌ input-vakt-test feilet — siste webapp-logg:"
+            docker compose -p "${PROJ}" logs webapp 2>&1 | tail -40
+            exit 1
+          fi
+          echo "✅ input-vakt-test OK."
+
+          # --- Map backgrounds that need an API key: CARTO refused without the key and as a snapshot,
+          #     the key in the live tile URL, a notice on stored snapshots, the key checked before saving. ---
+          echo "== kartbakgrunn-test =="
+          if ! docker compose -p "${PROJ}" exec -T webapp python tests/citest_map_background.py; then
+            echo "❌ kartbakgrunn-test feilet — siste webapp-logg:"
+            docker compose -p "${PROJ}" logs webapp 2>&1 | tail -40
+            exit 1
+          fi
+          echo "✅ kartbakgrunn-test OK."
+
+          # --- Every page keeps to its CSP: nonce on every <style> and inline <script>, no style=""
+          #     attributes, no 'unsafe-inline', JSON data blocks that parse. ---
+          echo "== CSP-side-test =="
+          if ! docker compose -p "${PROJ}" exec -T webapp python tests/citest_csp_pages.py; then
+            echo "❌ CSP-side-test feilet — siste webapp-logg:"
+            docker compose -p "${PROJ}" logs webapp 2>&1 | tail -40
+            exit 1
+          fi
+          echo "✅ CSP-side-test OK."
+
+          # --- Eksterne kartkilder: ÉN flis per kilde (bevisst minimal last). Fanger kilde nede
+          #     eller endret URL/API. Rød her = ekstern kilde, ikke nødvendigvis vår kode. ---
+          echo "== kartkilde-sjekk =="
+          if ! docker compose -p "${PROJ}" exec -T webapp python tests/livecheck_mapsources.py; then
+            echo "❌ kartkilde-sjekk feilet — en ekstern kartkilde svarer ikke/har endret seg."
+            exit 1
+          fi
+          echo "✅ kartkilde-sjekk OK."

@@ -1,0 +1,59 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+<div id="users">
+  {% if error %}<p class="err">{{ error }}</p>{% endif %}
+  <form class="row if-form" hx-post="{{ url_for('add_user') }}"
+        hx-target="#users" hx-swap="outerHTML"
+        data-reset-on-success>
+    <input name="username" placeholder="{{ t('users.ph_username') }}" required>
+    <input name="password" type="password" placeholder="{{ t('users.ph_password') }}" required>
+    <select name="group_id" title="{{ t('users.group_title') }}">
+      {% for g in groups if not g.hidden %}
+      <option value="{{ g.id }}" {{ 'selected' if g.name == 'brukere' }}>{{ group_label(g) }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">+ {{ t('users.add') }}</button>
+  </form>
+
+  <table class="iface-table">
+    <thead><tr><th>{{ t('users.col_user') }}</th><th>{{ t('users.col_group') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      {% include "_user_row.html" %}
+    {% else %}
+      <tr><td colspan="3" class="muted">{{ t('users.none') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  {# 2.0.0 (G-285): tilgang bor på GRUPPEN — rediger gruppens tilganger her. #}
+  <h3 class="bf-mt-18px">{{ t('users.groups') }} <span class="sub">{{ t('users.groups_sub') }}</span></h3>
+  <table class="iface-table">
+    <thead><tr><th>{{ t('users.col_group') }}</th><th>baseline</th><th></th></tr></thead>
+    <tbody>
+    {% for g in groups %}
+    <tr>
+      <td>{{ group_label(g) }}{% if g.is_system %} <span class="tag">{{ t('users.system') }}</span>{% endif %}
+          {% if g.hidden %}<span class="tag muted" title="{{ t('users.hidden_title') }}">{{ t('users.hidden') }}</span>{% endif %}</td>
+      <td class="mono">{{ t('users.baseline.' ~ g.baseline) }}</td>
+      <td class="right">
+        {% if g.baseline != 'full' %}
+        <a class="ghost sm" href="{{ url_for('edit_group', gid=g.id) }}">{{ t('users.grants') }}</a>
+        {% else %}<span class="muted">{{ t('users.always_all') }}</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if show_custom_groups %}
+  <form class="row if-form bf-mt-8px" hx-post="{{ url_for('add_group') }}"
+        hx-target="#users" hx-swap="outerHTML">
+    <input name="name" placeholder="{{ t('users.ph_group') }}" required>
+    <select name="baseline">
+      <option value="deny">{{ t('users.inherit_users') }}</option>
+      <option value="read">{{ t('users.inherit_operators') }}</option>
+    </select>
+    <button type="submit">+ {{ t('users.add_group') }}</button>
+  </form>
+  {% endif %}
+</div>

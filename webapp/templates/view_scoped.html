@@ -1,0 +1,89 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('view.scoped_title') }}{% endblock %}
+{% block body %}
+<div class="controls">
+  <div class="seg" id="range">
+    <button data-v="36h" class="on">{{ t('range.hours', n=36) }}</button>
+    <button data-v="7d">{{ t('range.week') }}</button>
+    <button data-v="30d">{{ t('range.month') }}</button>
+    <select class="seg-sel" id="range-long" title="{{ t('range.long_title') }}">
+      <option value="12mo">{{ t('range.months', n=12) }}</option>
+      <option value="24mo">{{ t('range.months', n=24) }}</option>
+      <option value="36mo">{{ t('range.months', n=36) }}</option>
+      <option value="48mo">{{ t('range.months', n=48) }}</option>
+    </select>
+  </div>
+  <div class="seg" id="dir">
+    <button data-v="total" class="on">{{ t('dir.total') }}</button>
+    <button data-v="in">{{ t('dir.in') }}</button>
+    <button data-v="out">{{ t('dir.out') }}</button>
+  </div>
+  <a class="ghost sm bf-ml-8px" href="{{ url_for('topper') }}" title="{{ t('view.alltime_title') }}">{{ t('common.alltime') }} ▸</a>
+  {% if graphs|length > 1 %}
+  <div class="seg" id="jump">
+    {% for g in graphs %}<button data-v="g-{{ loop.index }}">{{ g.label }}</button>{% endfor %}
+  </div>
+  {% endif %}
+  <span id="res-label" class="reslabel"></span>
+</div>
+
+{% for g in graphs %}
+<section class="card" id="g-{{ loop.index }}">
+  <h2>{{ g.label }} <span class="sub">{{ g.sub }}</span><label class="hint bf-fl-right bf-fw-400 bf-cur-pointer"><input type="checkbox" class="rec-toggle" data-for="chart-{{ loop.index }}"> {{ t('chart.alltime_toggle') }}</label></h2>
+  <div id="chart-{{ loop.index }}" class="chart" data-kind="{{ g.kind }}" data-value="{{ g.value }}" data-world="{{ g.world or '' }}"></div>
+</section>
+{% else %}
+<section class="card">
+  <div class="empty">{{ t('view.no_access') }}</div>
+</section>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  const state = { range: "36h", dir: "total", zoom: null };
+  const DIR_LABEL = { total: {{ t('dir.total')|tojson }}, in: {{ t('dir.in')|tojson }}, out: {{ t('dir.out')|tojson }} };
+  function onZoom(f, t) { state.zoom = { from: f, to: t }; refresh(); }         // G-278: dra-marker → zoom
+  function onResetZoom() { if (state.zoom) { state.zoom = null; refresh(); } }  // G-278: dblklikk → tilbake
+
+  const charts = [];
+  document.querySelectorAll(".chart[data-kind]").forEach(el => {
+    const ch = makeChart(el.id, null, { onZoom, onResetZoom });   // G-85 farger + G-278 zoom
+    charts.push({ c: ch, kind: el.dataset.kind, value: el.dataset.value, world: el.dataset.world });
+    const cb = document.querySelector('.rec-toggle[data-for="' + el.id + '"]');   // G-156: av/på rekord-linje
+    if (cb) cb.addEventListener("change", () => ch.setRecord(cb.checked));
+  });
+
+  function urlFor(g) {
+    const q = `range=${state.range}&dir=${state.dir}`
+            + (state.zoom ? `&from=${state.zoom.from}&to=${state.zoom.to}` : "");   // G-278
+    if (g.kind === "customer") return `{{ url_for('api_customer') }}?name=${encodeURIComponent(g.value)}`
+                                      + (g.world ? `&world=${g.world}` : "") + `&${q}`;
+    if (g.kind === "main")     return `{{ url_for('api_main') }}?${q}`;
+    if (g.kind === "backbone") return `{{ url_for('api_backbone') }}?${q}`;
+    return `{{ url_for('api_group') }}?role=${encodeURIComponent(g.value)}&${q}`;
+  }
+  function refresh() {
+    const dl = DIR_LABEL[state.dir] || "";
+    const rl = document.getElementById("res-label");
+    if (rl) rl.textContent = state.zoom
+      ? zoomResLabel(state.zoom.from, state.zoom.to) + " · " + {{ t('chart.zoomed')|tojson }}
+      : resLabel(state.range);
+    charts.forEach(g => loadInto(g.c, urlFor(g), dl));
+  }
+  bindRange(v => { state.range = v; state.zoom = null; refresh(); });   // nytt preset nullstiller zoom
+  bindSeg("dir",   v => { state.dir   = v; refresh(); });
+
+  // snarvei: hopp (scroll) ned til valgt graf – alle grafer forblir synlige
+  if (document.getElementById("jump"))
+    bindSeg("jump", id => {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+  refresh();
+  setInterval(refresh, 60000);
+</script>
+{% endblock %}

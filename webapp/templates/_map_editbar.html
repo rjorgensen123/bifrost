@@ -1,0 +1,49 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.8 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{# G-233: FELLES, LÅST redigerings-rad — ÉN kilde, identisk på ALLE kart (fysisk/logisk,
+   hovedkart/sub-area, nå og i framtid). Spesial-knapper pr. karttype ligger OVER denne raden
+   (i hver sin template). De to dataavvikene (linker lagret/generert + «Aktiver»-destinasjon)
+   håndteres i adapteren. Kaller `editbar_map_id` fra kallende template (for Bakgrunnskart-lenken).
+   Wiring: kjernen (map_renderer.js) kobler knappene via #eb-*-id-ene. #}
+<div class="controls map-editbar" id="map-editbar">
+  <div class="seg editgrp" id="eb-arrange" title="{{ t('editbar.arrange_title') }}">
+    <button type="button" data-mode="redo">{{ t('editbar.auto') }}</button>
+    <button type="button" data-mode="improve">{{ t('editbar.improve') }}</button>
+    <button type="button" data-mode="new">{{ t('editbar.new') }}</button>
+  </div>
+  {# G-292: speilvend hele plasseringen (alt snus, også låste noder). Arbeidskopi — klikk igjen = angre. #}
+  <div class="seg editgrp" id="eb-flip" title="{{ t('editbar.flip_title') }}">
+    <button type="button" id="eb-flip-h" title="{{ t('editbar.flip_h') }}">⇋</button>
+    <button type="button" id="eb-flip-v" title="{{ t('editbar.flip_v') }}">⇅</button>
+  </div>
+  <div class="seg editgrp" title="{{ t('editbar.draft_title') }}">
+    <button type="button" id="eb-save-draft" disabled>{{ t('editbar.save_draft') }}</button>
+    <button type="button" id="eb-discard-draft" disabled>{{ t('editbar.discard') }}</button>
+    <button type="button" id="eb-activate" class="activate" disabled>{{ t('editbar.activate') }}</button>
+  </div>
+  <div class="seg editgrp" title="{{ t('editbar.background') }}">
+    <a id="eb-bg-link" href="{{ url_for('maps.background_edit', map_id=editbar_map_id) }}">{{ t('editbar.background') }}…</a>
+  </div>
+  <div class="seg editgrp" title="{{ t('editbar.grid_gps_title') }}">
+    <select id="eb-grid-sel" class="seg-sel">
+      <option value="0">{{ t('editbar.grid_off') }}</option>
+      <option value="10">{{ t('editbar.grid_n', n=10) }}</option>
+      <option value="25">{{ t('editbar.grid_n', n=25) }}</option>
+      <option value="50">{{ t('editbar.grid_n', n=50) }}</option>
+      <option value="100">{{ t('editbar.grid_n', n=100) }}</option>
+    </select>
+    <select id="eb-gps-sel" class="seg-sel" title="{{ t('editbar.gps_title') }}">
+      <option value="off">{{ t('editbar.gps_off') }}</option>
+      <option value="relative">{{ t('editbar.gps_relative') }}</option>
+      <option value="exact">{{ t('editbar.gps_exact') }}</option>
+    </select>
+  </div>
+  {# G-233: Rediger-knappen bor i hvert karts TOPP-rad (øverst til høyre, ved spesial-knappene),
+     ikke her i den felles raden. #}
+</div>
+{# status på egen linje (så voksende status-tekst i Rediger-modus ikke wrapper Rediger-knappen).
+   G-253: fysisk kart har sin egen #save-status og bruker IKKE denne → kalleren kan sette
+   editbar_status=false for å droppe det døde elementet (logisk lar den stå, default true). #}
+{% if editbar_status | default(true) %}
+<div class="controls" id="eb-editstatus-row"><span class="hint" id="eb-edit-status"></span></div>
+{% endif %}

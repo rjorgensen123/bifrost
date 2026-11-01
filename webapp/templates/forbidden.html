@@ -1,0 +1,14 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('forbidden.title') }}{% endblock %}
+{% block body %}
+<section class="card bf-maxw-560px bf-m-8vh-auto-0 bf-ta-center">
+  <h2 class="bf-jc-center">🔒 {{ t('forbidden.title') }}</h2>
+  <p class="hint bf-fs-14px">{{ t('forbidden.body') }}</p>
+  <p class="bf-mt-14px">
+    <a class="ghost sm" href="{{ url_for('view') }}" data-history-back>↩ {{ t('common.back') }}</a>
+    <a class="ghost sm bf-ml-8px" href="{{ url_for('view') }}">{{ t('forbidden.home') }}</a>
+  </p>
+</section>
+{% endblock %}

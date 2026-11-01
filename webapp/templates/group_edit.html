@@ -1,0 +1,73 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('grp.title', name=group_label(grp)) }}{% endblock %}
+{% block body %}
+<section class="card">
+  <h2>{{ t('grp.heading', name=group_label(grp)) }}
+    <span class="sub">{{ t('grp.baseline.' ~ grp.baseline) }} · {{ t('grp.members', n=n_members) }}</span></h2>
+  {% if msg %}<p class="hint bf-c-ok-ink">✓ {{ msg }}</p>{% endif %}
+  <form method="post" action="{{ url_for('save_group_grants', gid=grp.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    {% if grp.baseline == 'deny' %}
+    <h3>{{ t('grp.graphs') }} <span class="sub">{{ t('grp.graphs_sub') }}</span></h3>
+    {% include "_grant_picker.html" %}
+    {% endif %}
+
+    <h3 class="bf-mt-14px">{{ t('nav.maps') }} <span class="sub">
+      {% if grp.baseline == 'read' %}{{ t('grp.maps_sub_read') }}{% elif grp.is_system %}{{ t('grp.maps_sub_pick') }}{% else %}{{ t('grp.maps_sub_pick_edit') }}{% endif %}</span></h3>
+    <table class="iface-table">
+      <tr><th>{{ t('grp.col_map') }}</th><th>{{ t('grp.col_type') }}</th><th>{{ t('grp.col_access') }}</th></tr>
+      {% for m in maps %}
+      <tr>
+        <td>{{ m.name }}{% if m.locked_at %} <span class="tag" title="{{ t('grp.locked_title') }}">🔒 {{ t('grp.locked') }}</span>{% endif %}</td>
+        <td class="mono">{{ t('grp.physical') if m.kind == 'physical' else t('grp.logical') }}</td>
+        <td>
+          {% set cur = entries.get(('map', m.id|string), '') %}
+          <select name="map_perm_{{ m.id }}">
+            {% if grp.baseline == 'read' %}
+            <option value=""      {{ 'selected' if cur == '' }}>{{ t('grp.perm_default_read') }}</option>
+            <option value="write" {{ 'selected' if cur == 'write' }}>{{ t('grp.perm_write') }}</option>
+            <option value="none"  {{ 'selected' if cur == 'none' }}>{{ t('grp.perm_hide') }}</option>
+            {% else %}
+            <option value=""      {{ 'selected' if cur == '' }}>{{ t('grp.perm_none') }}</option>
+            <option value="read"  {{ 'selected' if cur == 'read' }}>{{ t('grp.perm_read') }}</option>
+            {% if not grp.is_system %}<option value="write" {{ 'selected' if cur == 'write' }}>{{ t('grp.perm_write') }}</option>{% endif %}
+            {% endif %}
+          </select>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="muted">{{ t('grp.no_maps') }}</td></tr>
+      {% endfor %}
+    </table>
+
+    {% if grp.baseline == 'read' %}
+    <h3 class="bf-mt-14px">{{ t('nav.infoscreens') }} <span class="sub">{{ t('grp.screens_sub') }}</span></h3>
+    <table class="iface-table">
+      <tr><th>{{ t('grp.col_screen') }}</th><th>{{ t('grp.col_access') }}</th></tr>
+      {% for sc in screens %}
+      <tr>
+        <td>{{ sc.name }}</td>
+        <td>
+          {% set cur = entries.get(('infoscreen', sc.id|string), '') %}
+          <select name="is_perm_{{ sc.id }}">
+            <option value=""     {{ 'selected' if cur == '' }}>{{ t('grp.perm_default_edit') }}</option>
+            <option value="read" {{ 'selected' if cur == 'read' }}>{{ t('grp.perm_view_setup') }}</option>
+            <option value="none" {{ 'selected' if cur == 'none' }}>{{ t('grp.perm_hide') }}</option>
+          </select>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="2" class="muted">{{ t('grp.no_screens') }}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    <p class="bf-mt-12px"><button type="submit">{{ t('grp.save') }}</button>
+      <a class="ghost sm bf-ml-8px" href="{{ url_for('admin_users') }}">↩ {{ t('grp.back') }}</a></p>
+  </form>
+  <p class="hint">{{ t('grp.operator_zone') }}</p>
+</section>
+{% endblock %}

@@ -1,0 +1,120 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('nav.admin') }}{% endblock %}
+{% block body %}
+<section class="card">
+  <h2>{{ t('admin.settings') }} <span class="sub">{{ t('admin.settings_sub') }}</span></h2>
+  <p class="hint bf-m-0">→ <a href="{{ url_for('admin_settings') }}">{{ t('admin.open_settings') }}</a></p>
+</section>
+{% if demo_mode %}
+<section class="card accent">
+  <h2>{{ t('admin.demo') }} <span class="sub">{{ t('admin.demo_sub') }}</span></h2>
+  <form method="post" action="{{ url_for('demo_seed') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit">{{ t('admin.demo_load') }}</button>
+  </form>
+  <p class="hint">{{ t('admin.demo_hint') }}</p>
+</section>
+{% endif %}
+
+<section class="card accent">
+  <h2>{{ t('admin.discover') }} <span class="sub">{{ t('admin.discover_sub') }}</span></h2>
+  {% if request.args.get('adopt_ip') %}
+  <p class="muted">{{ t('admin.adopt_html', ip=request.args.get('adopt_ip')) }}</p>
+  {% endif %}
+  <form class="row" hx-post="{{ url_for('discover') }}" hx-target="#discover-out" hx-swap="innerHTML"
+        hx-indicator="#disc-spin">
+    <input name="address" placeholder="{{ t('admin.discover_address') }}" required autocomplete="off"
+           data-nb-search="{{ url_for('admin_netbox_search') }}"
+           value="{{ request.args.get('adopt_ip', '') }}"
+           {{ 'autofocus' if request.args.get('adopt_ip') }}>
+    <select name="snmp_version">
+      <option value="1">v1</option>
+      <option value="2c" selected>v2c</option>
+      <option value="3">v3</option>
+    </select>
+    <input name="snmp_community" placeholder="community (v1/v2c)"
+           value="{{ default_community if request.args.get('adopt_ip') else '' }}">
+    <input name="snmp_user" placeholder="user (v3)">
+    <select name="snmp_auth_proto"><option value="">auth-proto</option>
+      {% for p in snmp_auth_protos %}<option>{{ p }}</option>{% endfor %}</select>
+    <input type="password" name="snmp_auth_pass" placeholder="auth pass (v3)" autocomplete="new-password">
+    <select name="snmp_priv_proto"><option value="">priv-proto</option>
+      {% for p in snmp_priv_protos %}<option>{{ p }}</option>{% endfor %}</select>
+    <input type="password" name="snmp_priv_pass" placeholder="priv pass (v3)" autocomplete="new-password">
+    <button type="submit">{{ t('admin.scan') }}</button>
+    <span id="disc-spin" class="htmx-indicator spin">{{ t('admin.scanning') }}</span>
+  </form>
+  <p class="hint">{{ t('admin.snmp_read_only') }}</p>
+  <div id="discover-out"></div>
+</section>
+
+<section class="card">
+  <h2>{{ t('admin.hosts') }} <span class="sub">{{ t('admin.hosts_sub') }}</span></h2>
+  <form class="row" hx-post="{{ url_for('refresh_all_route') }}" hx-target="#rescan-all-status" hx-swap="outerHTML"
+        hx-confirm="{{ t('admin.rescan_all_confirm') }}">
+    <button type="submit">{{ t('admin.rescan_all') }}</button>
+  </form>
+  <div id="rescan-all-status" hx-get="{{ url_for('refresh_all_status') }}" hx-trigger="load" hx-swap="outerHTML"></div>
+  <p class="hint">{{ t('admin.rescan_all_hint') }}</p>
+  <p class="hint bf-mt-6px">→ {{ t('admin.categories_link_html', url=url_for('admin_categories')) }}</p>
+</section>
+
+{# G-201 (1.5.0): NetBox site/GPS-sync — fyller host.site/lat/lon for geografisk kart-plassering. #}
+<section class="card">
+  <h2>{{ t('admin.netbox') }} <span class="sub">{{ t('admin.netbox_sub') }}</span></h2>
+  {% if netbox_ok %}
+  <form class="row" hx-post="{{ url_for('netbox_sync') }}" hx-target="#netbox-status" hx-swap="innerHTML">
+    <button type="submit">{{ t('admin.netbox_fetch') }}</button>
+  </form>
+  {% else %}
+  <p class="hint">{{ t('admin.netbox_not_configured_html', url=url_for('admin_settings')) }}</p>
+  {% endif %}
+  <div id="netbox-status"></div>
+  <p class="hint bf-mt-6px">{{ t('admin.netbox_hint') }}</p>
+  <p class="hint bf-mt-4px">→ {{ t('admin.sites_link_html', url=url_for('admin_sites')) }}</p>
+</section>
+
+<section class="card">
+  <h2>{{ t('admin.dataquality') }} <span class="sub">{{ t('admin.dataquality_sub') }}</span></h2>
+  <p class="hint bf-m-0">{{ t('admin.dataquality_hint_html', url=url_for('admin_outliers')) }}</p>
+</section>
+
+<section class="card">
+  <h2>{{ t('admin.users') }} <span class="sub">{{ t('admin.users_sub') }}</span></h2>
+  <p class="hint bf-mt-0">{{ t('admin.users_summary_html', users=n_users, groups=n_groups, url=url_for('admin_users')) }}</p>
+</section>
+
+{% include "_hosts.html" %}
+
+<section class="card">
+  <h2>{{ t('admin.security') }} <span class="sub">{{ t('admin.security_sub') }}</span></h2>
+  <form class="row" hx-post="{{ url_for('admin_password') }}"
+        hx-target="#admin-pw-status" hx-swap="innerHTML"
+        data-reset-on-success>
+    <input name="current" type="password" placeholder="{{ t('admin.pw_current') }}" required>
+    <input name="new" type="password" placeholder="{{ t('admin.pw_new', n=min_pw) }}" required>
+    <input name="new2" type="password" placeholder="{{ t('admin.pw_repeat') }}" required>
+    <button type="submit">{{ t('account.change_password') }}</button>
+    <span id="admin-pw-status"></span>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  // G-76: kommer man fra Kategori-oversikt (#host-<id>) → scroll til hosten og åpne
+  // interface-panelet automatisk.
+  (function () {
+    const m = location.hash.match(/^#host-(\d+)$/);
+    if (!m) return;
+    const sec = document.getElementById('host-' + m[1]);
+    if (!sec) return;
+    sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const btn = sec.querySelector('button[data-host-toggle]');
+    const panel = document.getElementById('if-' + m[1]);
+    if (btn && panel && !panel.innerHTML.trim()) btn.click();   // åpner panelet
+  })();
+</script>
+<script src="{{ url_for('static', filename='netbox-search.js') }}"></script>
+{% endblock %}

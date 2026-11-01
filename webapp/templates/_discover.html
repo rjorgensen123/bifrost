@@ -1,0 +1,66 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% if error %}
+  <p class="err">{{ error }}</p>
+{% else %}
+{% set virtual_count = interfaces | rejectattr('physical') | list | length %}
+<form hx-post="{{ url_for('discover_save') }}" hx-target="#hosts" hx-swap="outerHTML"
+      data-clear-on-success="#discover-out">
+  {# G-298: SNMP-secrets ekkoes IKKE lenger i skjulte felt — de ligger i server-økta og hentes
+     av discover_save. Kun ikke-sensitiv adresse/versjon sendes til klienten. #}
+  <input type="hidden" name="address" value="{{ creds.address }}">
+  <input type="hidden" name="disc_key" value="{{ disc_key }}">
+  <input type="hidden" name="snmp_version" value="{{ creds.version }}">
+  <input type="hidden" name="ifindexes" value="{{ interfaces | map(attribute='if_index') | join(',') }}">
+
+  <div class="row disc-name">
+    <label>{{ t('discover.save_as') }}</label>
+    <input name="name" value="{{ sysname }}" required class="bf-minw-220px">
+    <span class="hint">{{ t('discover.found', n=interfaces|length) }}</span>
+  </div>
+  {% if netbox_note %}<p class="hint bf-c-warning bf-m-0-0-8px">ⓘ {{ netbox_note }}</p>{% endif %}
+  {% if snmp_note %}<p class="hint bf-c-warning bf-m-0-0-8px">⚠ {{ snmp_note }}</p>{% endif %}
+
+  {% if virtual_count %}
+  <label class="hint bf-d-block bf-m-0-0-8px">
+    <input type="checkbox" data-toggle-virtual>
+    {{ t('discover.show_virtual', n=virtual_count) }}
+  </label>
+  {% endif %}
+
+  <table class="iface-table disc-table">
+    <thead>
+      <tr><th>✓</th><th>ifIndex</th><th>{{ t('iface.col_name') }}</th><th>{{ t('iface.col_description') }}</th><th>{{ t('iface.col_speed') }}</th>
+          <th>{{ t('iface.col_status') }}</th><th>{{ t('iface.col_role') }}</th><th>{{ t('iface.col_counterparty') }}</th><th>ASN</th></tr>
+    </thead>
+    <tbody>
+    {% for i in interfaces %}
+      <tr class="{{ 'virtual' if not i.physical }} {{ 'down' if i.up == false }}">
+        <td><input type="checkbox" name="mon_{{ i.if_index }}" {{ 'checked' if i.physical and i.sugg_role }}></td>
+        <td class="mono">{{ i.if_index }}</td>
+        <td class="mono">{{ i.if_name }}<input type="hidden" name="name_{{ i.if_index }}" value="{{ i.if_name }}"><input type="hidden" name="alias_{{ i.if_index }}" value="{{ i.alias or '' }}"><input type="hidden" name="phys_{{ i.if_index }}" value="{{ '1' if i.physical else '' }}">{% if i.physical %}<input type="hidden" name="speed_{{ i.if_index }}" value="{{ i.speed_mbps or '' }}">{% endif %}</td>
+        <td class="alias">{{ i.alias or '—' }}</td>
+        {# G-342 (D3c): fysisk → vis SNMP-fart; virtuell/logisk → editerbart felt (SNMP-fart upålitelig, tving valg) #}
+        <td class="mono">{% if i.physical %}{% if i.speed_mbps %}{{ '%.0f'|format(i.speed_mbps/1000) }}G{% else %}—{% endif %}{% else %}<input name="speed_{{ i.if_index }}" value="{{ i.speed_mbps or '' }}" type="number" min="1" list="speed-presets" placeholder="Mbps" class="bf-w-88px" title="{{ t('discover.speed_title') }}">{% endif %}</td>
+        <td>{% if i.up %}<span class="up">up</span>{% elif i.up is none %}?{% else %}<span class="dn">down</span>{% endif %}</td>
+        <td>
+          <select name="role_{{ i.if_index }}">
+            {% for r in roles %}<option value="{{ r }}" {{ 'selected' if r == i.sugg_role }}>{{ role_label(r) }}</option>{% endfor %}
+          </select>
+        </td>
+        <td><input name="cp_{{ i.if_index }}" value="{{ i.sugg_cp or '' }}" list="cp-names" class="bf-w-120px"></td>
+        <td><input name="asn_{{ i.if_index }}" value="{{ i.sugg_asn or '' }}" type="number" class="bf-w-90px"></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {# G-072: autocomplete av motpart fra klassifiserings-mappingen (kjente navn) #}
+  <datalist id="cp-names">{% for n in cp_names or [] %}<option value="{{ n }}">{% endfor %}</datalist>
+  {# G-342: fart-forhåndsvalg (Mbps) — velg vanlig fart fra lista eller skriv egendefinert (f.eks. 1600000 = 1,6T) #}
+  <datalist id="speed-presets"><option value="1000" label="1 Gbps"><option value="10000" label="10 Gbps"><option value="100000" label="100 Gbps"></datalist>
+  <div class="row">
+    <button type="submit">{{ t('discover.save') }}</button>
+    <span class="hint">{{ t('discover.hint') }}</span>
+  </div>
+</form>
+{% endif %}

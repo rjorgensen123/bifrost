@@ -1,0 +1,6 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.8 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{# Display language for scripts: the chosen pack's "js." texts, locale and number format (i18n.js_bundle),
+   read by static/i18n.js as window.i18n. Included in <head> of every page that loads the app's scripts. #}
+<script nonce="{{ csp_nonce }}">window.BIFROST_I18N = {{ i18n_js|tojson }};</script>
+<script src="{{ url_for('static', filename='i18n.js') }}"></script>

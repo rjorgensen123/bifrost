@@ -1,0 +1,40 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.8 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="300">
+  <title>{{ graph_label }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/uPlot.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <style nonce="{{ csp_nonce }}">
+    /* G-271: samme bakgrunn som hovedgrafene (Internett/Backbone sitter på .card = var(--surface)).
+       Var tidligere hardkodet til en mørk farge → grafen ble stygg. Bruker nå BRANDING-tokenene
+       (app.css er lastet over; branding kan overstyre dem) — ingen harde farger. Grid/akser/serier
+       leser alt de samme tema-fargene, så bakgrunns-byttet gir hele det fine uttrykket. */
+    html,body{margin:0;height:100%;background:var(--surface)}
+    .gtitle{position:absolute;top:8px;left:14px;z-index:5;opacity:.85;
+            color:var(--ink);font:600 15px var(--font-display,system-ui),sans-serif}
+    #chart{position:absolute;left:14px;right:14px;top:36px;bottom:14px}
+  </style>
+  {% include "_i18n.html" %}
+</head>
+<body>
+  <div class="gtitle">{{ graph_label }}</div>
+  <div id="chart" class="chart"></div>
+  <script src="{{ url_for('static', filename='vendor/uPlot.iife.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='charts.js') }}"></script>
+  <script nonce="{{ csp_nonce }}">
+    window.APP_TZ = {{ app_tz_name|default('Europe/Oslo')|tojson }};
+    (function () {
+      var ch = makeChart("chart");
+      var url = {{ data_url|tojson }} + "?range=36h&dir=total";
+      function refresh() { loadInto(ch, url, {{ t('dir.total')|tojson }}); }
+      refresh();
+      setInterval(refresh, 60000);   // jevnlig oppdatering mens bildet vises
+    })();
+  </script>
+</body>
+</html>

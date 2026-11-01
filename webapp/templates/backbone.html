@@ -1,0 +1,67 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('nav.backbone') }}{% endblock %}
+{% block body %}
+<p class="hint bf-m-0-0-8px">{{ t('backbone.hint_html') }}</p>
+<div class="controls">
+  <div class="seg" id="range">
+    <button data-v="36h" class="on">{{ t('range.hours', n=36) }}</button>
+    <button data-v="7d">{{ t('range.week') }}</button>
+    <button data-v="30d">{{ t('range.month') }}</button>
+    <select class="seg-sel" id="range-long" title="{{ t('range.long_title') }}">
+      <option value="12mo">{{ t('range.months', n=12) }}</option>
+      <option value="24mo">{{ t('range.months', n=24) }}</option>
+      <option value="36mo">{{ t('range.months', n=36) }}</option>
+      <option value="48mo">{{ t('range.months', n=48) }}</option>
+    </select>
+  </div>
+  <div class="seg" id="dir">
+    <button data-v="total" class="on">{{ t('dir.total') }}</button>
+    <button data-v="in">{{ t('dir.in') }}</button>
+    <button data-v="out">{{ t('dir.out') }}</button>
+  </div>
+  <a class="ghost sm bf-ml-8px" href="{{ url_for('topper') }}" title="{{ t('view.alltime_title') }}">{{ t('common.alltime') }} ▸</a>
+  <span id="res-label" class="reslabel"></span>
+</div>
+
+<section class="card">
+  <h2>{{ t('nav.backbone') }} <span class="sub">{{ t('backbone.sub') }}</span><label class="hint bf-fl-right bf-fw-400 bf-cur-pointer"><input type="checkbox" id="rec-bb" checked> {{ t('chart.alltime_toggle') }}</label></h2>
+  <div id="chart-bb" class="chart"></div>
+</section>
+
+<section class="card">
+  <h2>{{ t('backbone.per_customer') }} <span class="sub">{{ t('backbone.per_customer_sub') }}</span><label class="hint bf-fl-right bf-fw-400 bf-cur-pointer"><input type="checkbox" id="rec-bbcust"> {{ t('chart.alltime_toggle') }}</label></h2>
+  <div id="chart-bbcust" class="chart"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  const state = { range: "36h", dir: "total", zoom: null };
+  const DIR_LABEL = { total: {{ t('dir.total')|tojson }}, in: {{ t('dir.in')|tojson }}, out: {{ t('dir.out')|tojson }} };
+  function onZoom(f, t) { state.zoom = { from: f, to: t }; refresh(); }         // G-278: dra-marker → zoom
+  function onResetZoom() { if (state.zoom) { state.zoom = null; refresh(); } }  // G-278: dblklikk → tilbake
+  const bbChart   = makeChart("chart-bb", null, { record: true, onZoom, onResetZoom });  // G-156 + G-278
+  const bbCust    = makeChart("chart-bbcust", null, { onZoom, onResetZoom });
+  [["rec-bb", bbChart], ["rec-bbcust", bbCust]].forEach(([id, ch]) => {
+    const cb = document.getElementById(id);
+    if (cb) cb.addEventListener("change", () => ch.setRecord(cb.checked));   // G-156: av/på rekord-linje
+  });
+
+  function refresh() {
+    const dl = DIR_LABEL[state.dir] || "";
+    const win = state.zoom ? `&from=${state.zoom.from}&to=${state.zoom.to}` : "";   // G-278
+    const rl = document.getElementById("res-label");
+    if (rl) rl.textContent = state.zoom
+      ? zoomResLabel(state.zoom.from, state.zoom.to) + " · " + {{ t('chart.zoomed')|tojson }}
+      : resLabel(state.range);
+    loadInto(bbChart, `{{ url_for('api_backbone') }}?range=${state.range}&dir=${state.dir}${win}`, dl);
+    loadInto(bbCust,  `{{ url_for('api_backbone_customers') }}?range=${state.range}&dir=${state.dir}${win}`, dl);
+  }
+  bindRange(v => { state.range = v; state.zoom = null; refresh(); });   // nytt preset nullstiller zoom
+  bindSeg("dir",   v => { state.dir   = v; refresh(); });
+  refresh();
+  setInterval(refresh, 60000);
+</script>
+{% endblock %}

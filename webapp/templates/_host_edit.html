@@ -1,0 +1,21 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+<form class="row" hx-post="{{ url_for('update_host', host_id=h.id) }}" hx-target="#hosts" hx-swap="outerHTML">
+  <input name="name" value="{{ h.name }}" required class="bf-w-130px" placeholder="{{ t('hosts.ph_name') }}">
+  <input name="address" value="{{ h.address }}" required class="bf-w-150px" placeholder="{{ t('hosts.ph_address') }}">
+  <select name="snmp_version">
+    <option value="1" {{ 'selected' if h.snmp_version=='1' }}>v1</option>
+    <option value="2c" {{ 'selected' if h.snmp_version=='2c' }}>v2c</option>
+    <option value="3" {{ 'selected' if h.snmp_version=='3' }}>v3</option>
+  </select>
+  <input name="snmp_community" value="{{ h.snmp_community or '' }}" placeholder="community (v1/v2c)" title="{{ t('admin.snmp_read_only') }}">
+  <input name="snmp_user" value="{{ h.snmp_user or '' }}" placeholder="user (v3)" title="{{ t('admin.snmp_read_only') }}">
+  <select name="snmp_auth_proto"><option value="">auth-proto</option>
+    {% for p in snmp_auth_protos %}<option {{ 'selected' if p==h.snmp_auth_proto }}>{{ p }}</option>{% endfor %}</select>
+  <input name="snmp_auth_pass" type="password" placeholder="{{ t('hosts.ph_auth_unchanged') }}">
+  <select name="snmp_priv_proto"><option value="">priv-proto</option>
+    {% for p in snmp_priv_protos %}<option {{ 'selected' if p==h.snmp_priv_proto }}>{{ p }}</option>{% endfor %}</select>
+  <input name="snmp_priv_pass" type="password" placeholder="{{ t('hosts.ph_priv_unchanged') }}">
+  <button class="sm" type="submit">{{ t('common.save') }}</button>
+  <button class="ghost sm" type="button" hx-get="{{ url_for('hosts_fragment') }}" hx-target="#hosts" hx-swap="outerHTML">{{ t('common.cancel') }}</button>
+</form>

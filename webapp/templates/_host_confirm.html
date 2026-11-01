@@ -1,0 +1,9 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.8 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+<div class="actions">
+  <span class="hint">{{ t('hosts.hide_confirm', name=h.name) }}</span>
+  <button class="ghost" hx-get="{{ url_for('hosts_fragment') }}"
+          hx-target="#hosts" hx-swap="outerHTML">{{ t('common.cancel') }}</button>
+  <button class="ghost danger" hx-post="{{ url_for('delete_host', host_id=h.id) }}"
+          hx-target="#hosts" hx-swap="outerHTML">{{ t('hosts.hide_yes') }}</button>
+</div>

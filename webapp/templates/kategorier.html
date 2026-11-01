@@ -1,0 +1,48 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('categories.title') }}{% endblock %}
+{% block body %}
+<p class="hint bf-m-0-0-12px">{{ t('categories.intro') }}</p>
+
+{% if groups %}
+<div class="seg" id="cat-jump">
+  {% for role, ifaces in groups %}<button type="button" data-cat="cat-{{ role }}">{{ role_label(role) }} ({{ ifaces|length }})</button>{% endfor %}
+</div>
+{% endif %}
+
+{% for role, ifaces in groups %}
+<details class="card cat" id="cat-{{ role }}">
+  <summary><strong>{{ role_label(role) }}</strong> <span class="sub">{{ t('categories.count', n=ifaces|length) }}</span></summary>
+  <table class="iface-table">
+    <thead><tr><th>{{ t('iface.col_counterparty') }}</th><th>ASN</th><th>{{ t('categories.col_host') }}</th><th>{{ t('categories.col_interface') }}</th></tr></thead>
+    <tbody>
+    {% for i in ifaces %}
+      <tr class="{{ 'off' if not i.enabled }}">
+        <td>{{ i.counterparty if i.counterparty else '—' }}</td>
+        <td class="muted">{{ ('AS' ~ i.asn) if i.asn else '' }}</td>
+        <td><a href="{{ url_for('inventar' if read_only else 'admin') }}#host-{{ i.host_id }}">{{ i.host }}</a></td>
+        <td class="muted">{{ i.if_name if i.if_name else ('ifIndex ' ~ i.if_index) }}{% if not i.enabled %}
+          <span class="tag bf-c-danger">{{ t('categories.disabled') }}</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</details>
+{% else %}
+<section class="card"><div class="empty">{{ t('categories.none') }}</div></section>
+{% endfor %}
+
+{# G-072: klassifiserings-mappingen nederst — SAMME partial for admin og lese-sida (read_only) #}
+{% include "_classmap.html" %}
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  // Snarvei: åpne + scroll til valgt kategori (G-76).
+  document.getElementById('cat-jump')?.addEventListener('click', e => {
+    const b = e.target.closest('button[data-cat]'); if (!b) return;
+    const d = document.getElementById(b.dataset.cat);
+    if (d) { d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+</script>
+{% endblock %}

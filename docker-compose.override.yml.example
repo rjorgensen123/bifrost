@@ -1,0 +1,10 @@
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v1.0.15
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Kun for venv-utvikling. Kopier til docker-compose.override.yml — compose
+# laster den automatisk i tillegg til docker-compose.yml.
+# Eksponerer den dockeriserte databasen på host-porten 5433, slik at app/poller
+# kjørt lokalt når den, uten å kollidere med en evt. Postgres på 5432.
+services:
+  db:
+    ports:
+      - "127.0.0.1:5433:5432"

@@ -1,0 +1,38 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.8 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('nav.distribution') }}{% endblock %}
+{% block body %}
+<div class="controls">
+  {# G-277: Fordeling er en NÅ-orientert visning → korte, nå-orienterte ranges (ikke de historiske
+     36t/uke/mnd/12mnd fra Internett/Backbone). «Nå» = øyeblikks-rate (matcher weathermap). #}
+  <div class="seg" id="range">
+    <button data-v="now" class="on">{{ t('range.now') }}</button>
+    <button data-v="1h">{{ t('range.hours', n=1) }}</button>
+    <button data-v="24h">{{ t('range.hours', n=24) }}</button>
+  </div>
+  <div class="seg" id="dir">
+    <button data-v="total" class="on">{{ t('dir.total') }}</button>
+    <button data-v="in">{{ t('dir.in') }}</button>
+    <button data-v="out">{{ t('dir.out') }}</button>
+  </div>
+  <div class="seg" id="mode">
+    <button data-v="asn" class="on">ASN</button>
+    <button data-v="func">{{ t('flowmap.function') }}</button>
+  </div>
+</div>
+
+<section class="card">
+  <h2>{{ t('nav.distribution') }} <span class="sub">{{ t('flowmap.sub') }}</span></h2>
+  <div id="map-legend" class="map-legend"></div>
+  <div id="map-wrap" class="map-wrap">
+    <svg id="map-svg" width="100%" viewBox="0 0 680 520" role="img"
+         data-api="{{ url_for('api_flowmap') }}"
+         aria-label="{{ t('flowmap.aria') }}"></svg>
+    <div id="map-tip" class="map-tip"></div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='flowmap.js') }}"></script>
+{% endblock %}

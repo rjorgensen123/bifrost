@@ -1,0 +1,21 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.8 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('login.admin_link') }}{% endblock %}
+{% block body %}
+<div class="auth-wrap">
+  <section class="card">
+    <h2>{{ t('nav.admin') }}</h2>
+    {% if error %}<p class="err">{{ error }}</p>{% endif %}
+    {% if expired %}<p class="hint">{{ t('login.expired') }}</p>{% endif %}
+    <form method="post" action="{{ url_for('login_admin') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="next" value="{{ request.args.get('next','') }}">
+      <div class="field"><label>{{ t('login.admin_password') }}</label>
+        <input name="password" type="password" autocomplete="current-password" autofocus required></div>
+      <button type="submit">{{ t('login.submit') }}</button>
+    </form>
+    <p class="hint"><a href="{{ url_for('login_user') }}">{{ t('login.as_user') }}</a></p>
+  </section>
+</div>
+{% endblock %}

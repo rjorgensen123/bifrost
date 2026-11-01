@@ -1,0 +1,111 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{% extends "base.html" %}
+{% block title %}{{ t('about.title') }}{% endblock %}
+{% block body %}
+<div class="about">
+
+  <section class="card about-hero">
+    <h1>Bifrost <span class="dim mono">v{{ version }}</span></h1>
+    <p class="tagline">{{ t('about.tagline') }}</p>
+    <p>{{ t('about.intro') }}</p>
+    <p class="about-links">
+      <a href="https://git.nordfiber.no/Nordfiber/bifrost">{{ t('about.link.source') }}</a>
+      <span class="dim">·</span>
+      <a href="https://git.nordfiber.no/Nordfiber/bifrost/wiki/Bifrost">{{ t('about.link.wiki') }}</a>
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>{{ t('about.operations') }}</h2>
+    {# G-122: eksplisitt status for App, Database og Poller hver for seg. #}
+    <p class="runline"><span class="up">●</span> <b>{{ t('about.status.app') }}:</b> {{ t('about.app.running', uptime=s.uptime) }}</p>
+    {% if s.config_ok or s.metrics_ok %}
+      <p class="runline"><span class="up">●</span> <b>{{ t('about.status.database') }}:</b> {{ t('about.db.up') }}</p>
+    {% else %}
+      <p class="runline"><span class="bad">●</span> <b>{{ t('about.status.database') }}:</b> {{ t('about.db.down') }}</p>
+    {% endif %}
+    {% if not s.metrics_ok %}
+      <p class="runline"><span class="dim">●</span> <b>{{ t('about.status.poller') }}:</b> {{ t('about.poller.unknown') }}</p>
+    {% elif s.live %}
+      <p class="runline"><span class="up">●</span> <b>{{ t('about.status.poller') }}:</b> {{ t('about.poller.active') }}{% if s.last %} · {{ t('about.poller.last_fetched', time=s.last.strftime('%H:%M:%S')) }} <span class="dim">({{ s.fresh_label }})</span>{% endif %}</p>
+    {% else %}
+      <p class="runline"><span class="bad">●</span> <b>{{ t('about.status.poller') }}:</b> {{ t('about.poller.no_fresh') }}{% if s.last %} · {{ t('about.poller.last', time=s.last.strftime('%H:%M:%S')) }} <span class="dim">({{ s.fresh_label }})</span>{% endif %}</p>
+    {% endif %}
+    <div class="stat-grid">
+      <div class="stat">
+        <span class="stat-k">{{ t('about.stat.started') }}</span>
+        <span class="stat-v">{{ s.started.strftime('%Y-%m-%d %H:%M') }}
+          <span class="dim">· {{ t('about.stat.running_for', uptime=s.uptime) }}</span></span>
+      </div>
+      <div class="stat">
+        <span class="stat-k">{{ t('about.stat.interval') }}</span>
+        <span class="stat-v">{{ t('about.stat.interval_value', n=s.poll) }}</span>
+      </div>
+      {% if s.metrics_ok %}
+      <div class="stat">
+        <span class="stat-k">{{ t('about.stat.last_data') }}</span>
+        <span class="stat-v mono">{% if s.last %}{{ s.last.strftime('%H:%M:%S') }}
+          <span class="dim">· {{ s.fresh_label }}</span>{% else %}—{% endif %}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-k">{{ t('about.stat.next') }}</span>
+        <span class="stat-v mono">{% if s.next %}{{ t('about.stat.next_value', time=s.next.strftime('%H:%M:%S')) }}{% else %}—{% endif %}</span>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if show_stats %}{# 2.0.0: tallene er operatør-sone; drift-status over vises alle #}
+  <section class="card">
+    <h2>{{ t('about.stored') }}</h2>
+    <div class="stat-grid">
+      {% if s.metrics_ok %}
+      <div class="stat">
+        <span class="stat-k">{{ t('about.stat.samples') }}</span>
+        <span class="stat-v mono">{{ fmt_number(s.samples) }}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-k">{{ t('about.stat.disk') }}</span>
+        <span class="stat-v mono">{{ s.disk or "—" }}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-k">{{ t('about.stat.span') }}</span>
+        <span class="stat-v mono">{% if s.last %}{{ s.first.strftime('%Y-%m-%d') }} → {{ s.last.strftime('%Y-%m-%d') }}{% else %}—{% endif %}</span>
+      </div>
+      {% endif %}
+      {% if s.config_ok %}
+      <div class="stat">
+        <span class="stat-k">{{ t('about.stat.monitored') }}</span>
+        <span class="stat-v">{{ tn('about.count.devices', s.hosts) }} · {{ tn('about.count.interfaces', s.polled) }}</span>
+      </div>
+      {% endif %}
+      {% if s.config_ok and s.metrics_ok and "stale" in s %}
+      <div class="stat">
+        <span class="stat-k">{{ t('about.stat.collection') }}</span>
+        <span class="stat-v">
+          {% if s.stale %}<span class="bad">●</span> {{ tn('about.stat.stale', s.stale, polled=s.polled) }}
+          {% else %}<span class="up">●</span> {{ tn('about.stat.all_ok', s.polled) }}{% endif %}
+        </span>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="card">
+    <h2>{{ t('about.license') }}</h2>
+    <p class="bf-m-0">{{ t('about.license.own') }}</p>
+    <p class="bf-m-8px-0-0">{{ t('about.license.agpl_html') }}</p>
+    {% set contact %}<a href="mailto:rogerj@gmail.com">rogerj@gmail.com</a>{% endset %}
+    <p class="bf-m-8px-0-0">{{ t('about.license.commercial_html', contact=contact) }}</p>
+  </section>
+
+</div>
+{% endblock %}
+{% block scripts %}
+<script nonce="{{ csp_nonce }}">
+  // hold drifts-tallene ferske uten at brukeren må laste på nytt
+  setTimeout(() => location.reload(), 60000);
+</script>
+{% endblock %}
