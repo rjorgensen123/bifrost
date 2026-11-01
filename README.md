@@ -13,12 +13,27 @@ Docker containers and needs no online service.
 
 Each interface gets a **role** (IX, PNI, CDN, transit, peering, customer, NNI, core, distribution) and a
 **counterparty**. A counterparty **with an ASN is Internet traffic**; one **without an ASN is
-backbone/internal**. Interfaces not classified yet have the role `ukategorisert` (uncategorised) and
-stay off the maps and the Distribution page.
+backbone/internal**. Interfaces given the role `ukategorisert` (uncategorised) stay off the maps and
+the Distribution page.
 
-The user interface is in Norwegian or English: the installation's language is set under Settings, and each
-user can choose their own on My page. This README uses the English labels with the Norwegian label in
-brackets, e.g. "Settings (Innstillinger)". Source code: https://github.com/rjorgensen123/bifrost
+The user interface is in Norwegian (the default) or English: the installation's language is set under
+Settings, and each user can choose their own on My page. This README uses the English labels with the
+Norwegian label in brackets, e.g. "Settings (Innstillinger)". Source code:
+https://github.com/rjorgensen123/bifrost
+
+- **Type:** web application in three Docker containers (database, web app, poller)
+- **License:** AGPL-3.0-or-later, and a commercial license on request (see [License](#license))
+- **Docs:** overview [`docs/Home.md`](docs/Home.md) · dashboard style
+  [`docs/bifrost-gui-oppskrift.md`](docs/bifrost-gui-oppskrift.md) · for developers
+  [`DEVELOPMENT.md`](DEVELOPMENT.md)
+- **Changes:** [`CHANGELOG.md`](CHANGELOG.md) · **Version:** in the title above, in the footer, on the
+  About page and at `/healthz`
+
+## Why Bifrost exists
+
+Bifrost was built to replace Weathermap and Cacti, a wish that is 15–20 years old: one application
+instead of two, where the graphs, the maps and the distribution of traffic are all drawn from the same
+stored counters.
 
 ## Quick start
 
@@ -38,7 +53,7 @@ small host (db 512M, webapp 512M, poller 128M) and can be changed in `docker-com
 
 ## First login
 
-1. Go to **/admin/login**. The normal login page links to it ("Admin-innlogging").
+1. Go to **/admin/login**. The normal login page links to it (**Admin login (Admin-innlogging)**).
 2. Log in with `ADMIN_PASSWORD` from `.env`, or `change-me-soon` if you did not set it. With that
    default, Bifrost makes you choose a new password (at least 12 characters) before anything else.
 3. Add the first router under **Admin → Discover via SNMP (Oppdag via SNMP)**. The first graph appears
@@ -49,8 +64,8 @@ on the very first start; later, change the password under **Admin → Security (
 `manage.py set-admin-password`. Everyone else logs in at `/login` with their own account.
 
 **No devices yet?** Set `DEMO_MODE=1`, run `docker compose up -d` and press **Admin → Load demo data
-(Last inn demo-data)**: 9 demo routers, 36 hours of history, a map and synthetic traffic (empty
-installations only).
+(Last inn demo-data)**, or run `manage.py seed-demo`: 9 demo routers, 36 hours of history and synthetic
+traffic (empty installations only). `seed-demo` also activates a map of the demo routers.
 
 ## The pages
 
@@ -61,7 +76,7 @@ installations only).
 | Distribution (Fordeling) | Hub and spokes: whom you exchange traffic with, per ASN or per function, now or over 1 or 24 hours. |
 | Maps (Kart) | Physical maps with load per link, coloured by utilisation. Each half of a link shows its own end, so a one-sided fault is visible. Click a link for its graph. |
 | Logical (Logisk) | Maps built from OSPF, one per area, plus maps you make from chosen routers. Shows OSPF cost and neighbour state per link end. |
-| Peaks (Trafikk-topper) | The highest traffic per series. Opened with the "All-time ▸" button on Internet or Backbone. |
+| Traffic peaks (Trafikk-topper) | The highest traffic per series. Opened with the "All-time ▸" button on Internet or Backbone. |
 | Tools (Verktøy) | History (Historikk), Inventory (Inventar), Log (Logg), Info screens (Infoscreens), My page (Min side). |
 | Admin | Hosts, discovery, NetBox, Data quality (Datakvalitet), Users & groups (Brukere & grupper), Security (Sikkerhet), Settings (Innstillinger). |
 | About (Om) | Click the version number in the top bar: status of app, database and poller, and how much data is stored. |
@@ -90,8 +105,8 @@ once. Sessions last at most 18 hours for the break-glass admin and `admin`-group
   page (Min side)** and log in with one tap. They need HTTPS (localhost works for testing).
 - **Public link** (`/public/map/<id>`): a minimal, self-refreshing page for one active map. It still
   needs a login, and the group needs the "public" grant.
-- **Info screen** (Tools → Infoscreens): a NOC page with its own secret link and **no login**. It rotates
-  through chosen physical maps and graphs. Make a new link to revoke the old one.
+- **Info screen** (Tools → Info screens (Infoscreens)): a NOC page with its own secret link and **no
+  login**. It rotates through chosen physical maps and graphs. Make a new link to revoke the old one.
 
 ## Maps
 
@@ -102,11 +117,11 @@ ghost nodes. In the editor you drag nodes, lock them, or let Bifrost place them:
 | Button | What it does |
 |---|---|
 | Auto | A predictable standard layout. |
-| Forbedre (Improve) | Refines the current layout. |
-| Nytt (New) | Builds a new layout from scratch. |
+| Improve (Forbedre) | Refines the current layout. |
+| New (Nytt) | Builds a new layout from scratch. |
 | ⇋ / ⇅ (flip / flop) | Mirrors the whole layout east–west or north–south, locked nodes too. Click again to undo. |
 
-Auto, Forbedre and Nytt leave locked nodes in place. **Background map… (Bakgrunnskart…)** puts your own
+Auto, Improve and New leave locked nodes in place. **Background map… (Bakgrunnskart…)** puts your own
 image or a tile snapshot behind the nodes, stored in the database so viewing works offline. GPS
 positions can come from NetBox.
 
@@ -136,16 +151,18 @@ raw data is not changed. A rate is impossible above interface speed × **rate ca
 a 10G link is capped at 70 Gbit/s), or above **max interface speed** (default 10 Tbit/s) when the speed
 is unknown. Both are settings. A speed set by hand is never overwritten by SNMP.
 
-**Data quality (Admin → Datakvalitet)** lists glitches below the cap, each with a diagnosis and a
-recommended action (★): **Rett** (fix: use the average of the neighbouring readings), **Slett** (delete
-the reading) or **La ligge** (leave it: mark as known and hide it; raw data is untouched, and **Angre**
-undoes it). Peaks never go down by themselves, so an old fake record stays until you press **Rens
-Topper** (purge peaks) on the same page.
+**Data quality (Admin → Data quality (Datakvalitet))** lists readings above a threshold (default
+1000 Gbit/s over the last 14 days), each with a diagnosis and a recommended action (★): **Fix (Rett)**
+uses the average of the neighbouring readings, **Delete (Slett)** removes the reading, and **Leave (La
+ligge)** marks it as known and hides it (raw data is untouched, and **Undo (Angre)** brings it back).
+Readings above the rate cap are listed too, marked as already hidden. Peaks never go down by themselves,
+so an old fake record stays until you press **Clean up Peaks (Rens Topper)** on the same page.
 
 ## Configuration
 
 - **`.env`**: deployment settings, read when the containers start (run `docker compose up -d` after a
-  change). `.env.example` lists every variable with comments.
+  change). `.env.example` lists them with comments. Most application settings can also be given in
+  `.env`, as a fallback for the value stored in the database.
 - **Admin → Settings (Innstillinger)**: application settings, stored in the database, no restart needed.
 
 | `.env` variable | Default | Purpose |
@@ -175,7 +192,9 @@ title) and `--nf` / `--nf-ink` (the "bifrost" word mark).
 
 All times in the app (graphs, day boundaries, the log, the re-scan window, the daily peak fold) follow
 the zone chosen under **Admin → Settings (Innstillinger)**. The choice is stored in the database, and
-until one is saved, Europe/Oslo is used. Data is stored in UTC, so the zone can be changed at any time.
+until one is saved, Europe/Oslo is used. Data is stored in UTC, so the zone can be changed at any time;
+the daily averages behind the 12–48-month graphs follow a new zone after the web app has been
+restarted.
 
 Set the zone in the app, not in `.env`: `docker-compose.yml` fixes the containers' `TZ` to Europe/Oslo,
 so `TZ` in `.env` has no effect. The container zone is only a fallback for when the setting cannot be
@@ -209,7 +228,8 @@ the scripts from the repository root:
 | `./scripts/restore.sh all` | Restores the newest backup in `./backup` |
 | `./scripts/restore.sh data <file>` | Restores one file; `.tgz` or `.dump` decides the method |
 
-Each backup also saves `.env` as `backup/env-<stamp>.bak`; the newest 10 sets are kept.
+Each backup also saves `.env` as `backup/env-<stamp>.bak`. The newest 10 files of each kind are kept
+(`RETENTION_COUNT`).
 
 **Encryption.** Backups are encrypted by default (`openssl`, AES-256 with PBKDF2) and end in `.enc`.
 Give the passphrase at the hidden prompt, or in `BACKUP_PASSPHRASE` for cron. It is never stored, so
@@ -238,10 +258,11 @@ curl localhost:8123/healthz
 ## Upgrading
 
 Run `git pull && docker compose up -d --build`. The `--build` is needed every time, because the code is
-built into the images. Data in the `tsdata` volume survives; only `docker compose down -v` deletes it. Database changes are applied at start and are safe
-to repeat. Before moving to a **new TimescaleDB image**, take a backup: Bifrost updates the extension
-itself, and that cannot be undone. If `CHANGELOG.md` says peak scoping has changed, run
-`manage.py fold-peaks --reseed` once; it fills in from stored history and deletes nothing.
+built into the images. Data in the `tsdata` volume survives; only `docker compose down -v` deletes it.
+Database changes are applied at start and are safe to repeat. Before moving to a **new TimescaleDB
+image**, take a backup: Bifrost updates the extension itself, and that cannot be undone. If
+`CHANGELOG.md` says peak scoping has changed, run `manage.py fold-peaks --reseed` once; it fills in from
+stored history and deletes nothing.
 
 ## Maintenance and command line
 
@@ -249,17 +270,18 @@ Run commands inside the webapp container: `docker compose exec webapp python man
 
 | Command | What it does |
 |---|---|
-| `set-admin-password` | Sets the break-glass admin password (hidden prompt); logs out all admin sessions. |
+| `set-admin-password` | Sets the break-glass admin password (hidden prompt); logs out all break-glass admin sessions. |
 | `reset-user-password <user>` | Sets a new password for a user (hidden prompt); logs out their sessions. |
 | `list-users` | Lists users, their group, and whether they are deactivated. |
 | `refresh-ifalias` | Re-scans all hosts now: interface names, descriptions (`ifAlias`) and speeds. |
 | `ospf-build` | Builds the logical OSPF maps now. |
 | `fold-peaks [--reseed]` | Updates Peaks now; `--reseed` goes through the full history. |
-| `seed-demo` | Loads the demo data (empty installation only). |
+| `seed-demo` | Loads the demo data and activates a demo map (empty installation only). |
 
 Housekeeping runs by itself: abandoned working copies go after 60 minutes, unused draft maps after 28
 days, log entries after 180 days (`LOG_RETENTION_DAYS`) and finished background jobs after 30 days.
-When something is wrong, look at **Tools → Log (Logg)** first; it includes database outages. If the
+When something is wrong, look at **Tools → Log (Logg)** first. The log is kept in the database, so while
+the database itself is down, messages go to the containers' output (`docker compose logs`). If the
 database goes down, the web app shows a "database unavailable" page and recovers by itself.
 
 ## SNMP
@@ -270,7 +292,9 @@ database goes down, the web app shows a "database unavailable" page and recovers
   by Bifrost, so granting write access is a configuration mistake on the device side.
 - v1, v2c and v3. For v3: SHA, SHA256, SHA512 or MD5 authentication; AES, AES256 or DES privacy.
 - v2c and v3 use 64-bit counters (`ifHCInOctets`/`ifHCOutOctets`). v1 cannot, so it falls back to
-  32-bit counters, which wrap above about 115 Mbit/s average. Use v1 only on slow links.
+  32-bit counters. They wrap every 4 GiB (about once an hour at 10 Mbit/s), which shows as a gap in the
+  graphs, and above about 115 Mbit/s average they can wrap twice between two polls and give too low a
+  value. Use v1 only on slow links.
 - The host address must be an **IP address** (IPv4 or IPv6), not a host name. When discovering a
   device you can search NetBox by name to fill in the IP.
 - Webapp and poller must reach the devices on UDP port 161. An empty community means the default from
@@ -303,9 +327,10 @@ python webapp/app.py              # http://localhost:8123
 python poller/poller.py           # in a second terminal, same DATABASE_URL
 ```
 
-CI runs syntax checks, unit tests and integration tests: Gitea Actions (`.gitea/workflows/`) on every push
-to `review` and `main`, and GitHub Actions (`.github/workflows/`) on every push to `main` and on pull
-requests.
+CI runs syntax checks, unit tests and integration tests. Here, GitHub Actions (`.github/workflows/`) runs
+all of them on every push to `main`, and the syntax checks and unit tests on pull requests. The same
+checks run where development happens (Gitea Actions, `.gitea/workflows/`). How the code is laid out, and
+the rules a change has to follow, are in [`DEVELOPMENT.md`](DEVELOPMENT.md).
 
 ## Documentation and examples
 
@@ -315,15 +340,16 @@ names stay the same.
 
 | File | What it is |
 |---|---|
-| [`docs/Home.md`](docs/Home.md) | The overview: what Bifrost is, the pages, maps, access and data, in plain language. It is also the wiki's front page. |
-| [`docs/bifrost-gui-oppskrift.md`](docs/bifrost-gui-oppskrift.md) | A recipe for the calm dashboard style used in Bifrost: the principles, design tokens, cards, segmented controls and uPlot charts. Written to be reused in other projects. Also on the wiki. |
+| [`docs/Home.md`](docs/Home.md) | The overview: what Bifrost is, the pages, maps, access and data, in plain language. |
+| [`docs/bifrost-gui-oppskrift.md`](docs/bifrost-gui-oppskrift.md) | A recipe for the calm dashboard style used in Bifrost: the principles, design tokens, cards, segmented controls and uPlot charts. Written to be reused in other projects. |
 | [`docs/theme.example.css`](docs/theme.example.css) | A complete colour theme to copy, change and upload (see Branding above). |
 | [`docs/nginx.conf.example`](docs/nginx.conf.example) | nginx terminating HTTPS in front of Bifrost, at the root or under a path prefix. |
+| [`DEVELOPMENT.md`](DEVELOPMENT.md) | How the code is laid out, and the rules a change has to follow. |
 | [`CHANGELOG.md`](CHANGELOG.md) | What changed in each version. |
 
 ## Author
 
-Roger Jorgensen — <rogerj@gmail.com>
+**Roger Jorgensen** — rogerj@gmail.com
 
 Design, architecture and structure; the data model, and the choice to store the raw counters and work
 out rates when they are read; how traffic is combined and presented, in particular the Distribution page
@@ -333,7 +359,7 @@ destructive.
 
 The code is written by Claude AI (Opus and Fable).
 
-Reviewed independently by Qwen, DeepSeek, Fable, Opus, Gemini and MiMo.
+Reviewed independently by Qwen, DeepSeek, Gemini, Antigravity, MiMo, Fable and Opus.
 
 ## License
 
@@ -343,13 +369,31 @@ Bifrost is **dual-licensed**:
   Bifrost freely. If you offer a **modified** version to others, including as a network service, the
   changes must be available under the same license. Running Bifrost internally for your own network
   carries no such obligation.
-- **Commercial license** without the AGPL obligations: available on request from <rogerj@gmail.com>.
+- **Commercial license** without the AGPL obligations: available on request from rogerj@gmail.com.
+
+The AGPL keeps changes to Bifrost open, also when it is offered as a service; the commercial license is
+there for those who cannot take on that obligation.
 
 © Roger Jorgensen. The design, the data model and the way traffic is combined and presented, in
 particular the Distribution page and the automatic generation and placement of network maps, are
-developed in-house. Every source file carries `SPDX-License-Identifier: AGPL-3.0-or-later`.
+developed in-house. Source files carry `SPDX-License-Identifier: AGPL-3.0-or-later`.
 
 Third-party components keep their own licenses. [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)
 lists all of them — the files under `webapp/static/vendor/`, the Python packages, the container images
 and the map tile services — with the license each is under. Files under `webapp/static/vendor/` are
 third-party, carry their license text next to them and are not marked with Bifrost's license.
+
+### Contributions
+
+**Reports are what is wanted here — not patches.** If something behaves differently from what the
+documentation says, or a guarantee does not hold, say so and show how to see it. That is the most
+useful thing anyone outside can send, and it is quicker and safer for the fix to be made where
+development happens than for a patch to be reviewed and reshaped into it.
+
+Code is not refused. It is simply not what is being asked for, and it is not prioritised. **If you do
+send it, it is accepted only under Bifrost's own terms:** it must be possible to distribute it under
+AGPL-3.0-or-later **and** under Bifrost's commercial license. By submitting code for inclusion you agree
+to that.
+
+[CONTRIBUTING.md](CONTRIBUTING.md) says how to file a report. [SECURITY.md](SECURITY.md) covers
+anything security-related, which does not belong in an issue.
