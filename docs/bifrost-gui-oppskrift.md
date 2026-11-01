@@ -127,7 +127,7 @@ everywhere. Bifrost applies the same `.seg` rules to `<a>` elements for choices 
 - **Responsive.** Width = container width, height = 40 % of the width clamped to 200–320 px, refit
   with a `ResizeObserver`. A matching `min-height` on the container keeps the page from jumping.
 - **Formatted values.** bps in Kbps/Mbps/Gbps/Tbps; 24-hour time on the x-axis, with the label format
-  chosen by the visible span (time, day.month, month name).
+  chosen by the visible span (time, day and month, month name).
 
 ```js
 const cvar = (n, fallback) =>

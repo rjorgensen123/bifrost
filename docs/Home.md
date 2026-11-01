@@ -41,15 +41,15 @@ page); this page gives the Norwegian labels in parentheses.
 
 | Page | What it is for |
 |---|---|
-| **Internet** (Internett) | Traffic leaving the network over time: IX, PNI, CDN, transit, peering and customers with their own ASN. The total counts only traffic going out of the network. |
-| **Backbone** | Internal traffic: core, distribution, NNI and customers without an ASN, one line each. The same data as Internet, shown differently. |
-| **Distribution** (Fordeling) | Your own network in the centre with the counterparties around it, line width showing volume. Grouped by ASN or by function, for now, the last hour or the last 24 hours. |
+| **Internet** (Internett) | Traffic leaving the network over time: IX, PNI, CDN, transit, peering and customers with their own ASN. The total counts only the categories that leave the network (IX, PNI, CDN, transit and peering), in the direction you choose. |
+| **Backbone** | Internal traffic: core, distribution, NNI and customers without an ASN, one line each, with no combined total. These are other interfaces than the ones on Internet. |
+| **Distribution** (Fordeling) | Your own network in the centre with the counterparties around it, line width showing volume. Grouped by ASN or by function, right now, over the last hour or over the last 24 hours. |
 | **Maps** (Kart ▾) | Physical maps of the network, with each link coloured by load. |
 | **Logical maps** (Logisk ▾) | OSPF maps that draw themselves, one per area, plus maps of routers you pick. |
 | **Peaks** (Trafikk-topper, the «All-time ▸» button) | The highest traffic per series for today, this week, month and year, and all time. Shown for 5-minute spikes and for 1-hour sustained load, as a table or a trend graph. |
 | **History** (Verktøy ▾ → Historikk) | One interface, in and out, going back in time or on a chosen date. |
 | **Inventory** (Inventar) | The same host list and categories as Admin, read-only. |
-| **Log** (Logg) | A permanent event log: logins, user and access changes, host and interface changes. |
+| **Log** (Logg) | An event log: logins, user and access changes, host and interface changes. Entries are kept for 180 days. |
 | **Info screens** (Infoscreens) | Set up NOC screens that rotate through chosen maps and graphs. |
 | **My page** (Min side) | Change your password, choose your display language, manage passkeys, see your logged-in devices and log them out. |
 | **Admin** | Add hosts by SNMP discovery, classify interfaces and re-scan hosts. From here you reach Settings (Innstillinger), Users & groups (Brukere & grupper), Data quality (Datakvalitet) and Imported sites (Importerte sites). |
@@ -61,9 +61,11 @@ points). Drag across a graph to zoom in, and Bifrost fetches finer data for that
 ## Maps
 
 **Physical maps** (Kart) show routers and the links between them. Links come from the interface
-descriptions: an interface whose description names another host on the map becomes a link, and the
-rest become links out to counterparties. Each half of a link shows its own end, coloured green, then
-yellow, then red as it fills, so a link that is down on one side only is easy to spot. *Down* (red
+descriptions: a core or distribution interface whose description names another host on the map
+becomes a link to it (one without a match is linked by hand in the editor), interfaces with other roles
+become links out to their counterparties, and uncategorised interfaces are left off. Each half of a
+link shows its own end, coloured green, yellow, orange or red as it fills, so a link that is down on one
+side only is easy to spot. *Down* (red
 «NEDE») is kept separate from *no fresh data* (grey «ingen data»). Hover over a link for rate and
 capacity, click it for a traffic graph, or use the time slider to look back over the last 24 hours.
 
@@ -81,7 +83,8 @@ Both kinds of map use **the same editor and the same placement engine**:
 - **Forbedre** (improve) tidies the current layout with fewer crossings and better spacing.
 - **Nytt** (new) builds from scratch another way, when you want a different suggestion.
 - **Flip ⇋ / flop ⇅** mirror the whole layout east–west or north–south. Click again to undo.
-- Drag, rename, lock or grid-snap nodes. Every automatic step leaves locked nodes where they are.
+- Drag, rename, lock or grid-snap nodes. Auto, Forbedre and Nytt leave locked nodes where they are;
+  flip and flop turn them too.
 
 **GPS from NetBox** can be the starting point. *Relative* spreads the nodes out in proportion to where
 they really are, and *exact* puts each one on its spot on a geographic background. It is only a
@@ -177,7 +180,7 @@ Unencrypted backups are possible, but only if you ask for them explicitly. See t
 
 ## Author
 
-Roger Jorgensen — <rogerj@gmail.com>
+**Roger Jorgensen** — rogerj@gmail.com
 
 Design, architecture and structure; the data model, and the choice to store the raw counters and work
 out rates when they are read; how traffic is combined and presented, in particular the Distribution page
@@ -187,7 +190,7 @@ destructive.
 
 The code is written by Claude AI (Opus and Fable).
 
-Reviewed independently by Qwen, DeepSeek, Fable, Opus, Gemini and MiMo.
+Reviewed independently by Qwen, DeepSeek, Gemini, Antigravity, MiMo, Fable and Opus.
 
 ## Licence
 
