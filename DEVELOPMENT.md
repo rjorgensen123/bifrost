@@ -17,7 +17,7 @@ README under [Development](README.md#development).
 | `webapp/tests/` | `test_*.py` unit tests, `citest_*.py` integration tests (need a database), `livecheck_mapsources.py` |
 | `db/schema.sql` | Initializes a fresh data volume (the `if_sample` table only); everything else is created at startup |
 | `scripts/` | Backup and restore |
-| `.gitea/workflows/` | CI |
+| `.gitea/workflows/`, `.github/workflows/` | CI on the internal Gitea and on GitHub, with the same checks in both |
 
 The modules in `webapp/`:
 
@@ -144,5 +144,5 @@ file or image gets a row in `THIRD_PARTY_LICENSES.md`, with the license read at 
 - Integration tests (`citest_*.py`) need a running database and are not picked up by `unittest discover`. Run
   each one as a script inside the webapp container once the database is up, for example
   `docker compose exec webapp python tests/citest_input_guards.py`. CI runs them all in
-  `.gitea/workflows/ci-integration.yml`.
+  `ci-integration.yml` (in both `.gitea/workflows/` and `.github/workflows/`).
 - An integration test cleans up the data it creates.

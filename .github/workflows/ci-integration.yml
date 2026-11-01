@@ -1,0 +1,82 @@
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.0
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Integration CI for Bifrost on GitHub: builds the images, boots the stack in demo mode, waits for /healthz,
+# runs every integration test inside the web app container and then checks the external map sources. The
+# same run as .gitea/workflows/ci-integration.yml, but directly on the runner, which has Docker and Compose;
+# the Gitea version runs in a container that gets the runner's Docker socket.
+name: CI integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    env:
+      PROJ: bifrost-ci
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configuration (demo mode, test passwords)
+        run: |
+          cp .env.example .env
+          {
+            echo "DB_PASSWORD=ci-test-${GITHUB_RUN_ID}"
+            echo "DEMO_MODE=1"
+            echo "ADMIN_PASSWORD=ci-admin-${GITHUB_RUN_ID}"
+          } >> .env
+
+      - name: Build
+        run: docker compose -p "$PROJ" build
+
+      # The database is started first and waited for in a generous loop, so a slow first start does not
+      # fail on compose's own depends_on timeout. Its log is shown if it never becomes healthy.
+      - name: Start the database and wait until it is healthy
+        run: |
+          docker compose -p "$PROJ" up -d db
+          for i in $(seq 1 60); do
+            h="$(docker inspect --format '{{.State.Health.Status}}' "$(docker compose -p "$PROJ" ps -q db)" 2>/dev/null || echo none)"
+            [ "$h" = healthy ] && { echo "Database healthy."; exit 0; }
+            sleep 3
+          done
+          echo "The database did not become healthy (status: ${h:-?})."
+          docker compose -p "$PROJ" ps
+          docker compose -p "$PROJ" logs db | tail -80
+          exit 1
+
+      # --no-deps: the database is already healthy, so compose does not check it again here.
+      - name: Start the web app and the poller, wait for /healthz
+        run: |
+          docker compose -p "$PROJ" up -d --no-deps webapp poller
+          for i in $(seq 1 45); do
+            if docker compose -p "$PROJ" exec -T webapp python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8123/healthz',timeout=5).status==200 else 1)" 2>/dev/null; then
+              echo "/healthz OK."; exit 0
+            fi
+            sleep 4
+          done
+          echo "/healthz did not answer in time."
+          docker compose -p "$PROJ" logs webapp | tail -60
+          exit 1
+
+      - name: Integration tests
+        run: |
+          for t in citest_map_gating citest_acl_gating citest_passkey citest_account_ownership \
+                   citest_map_merge citest_jobqueue citest_rates citest_infoscreen citest_ospf_cleanup \
+                   citest_map_input citest_input_guards citest_map_background citest_csp_pages; do
+            echo "== $t =="
+            if ! docker compose -p "$PROJ" exec -T webapp python "tests/$t.py"; then
+              echo "$t failed. Last web app log:"
+              docker compose -p "$PROJ" logs webapp | tail -40
+              exit 1
+            fi
+          done
+
+      # One tile per source. A failure here means an external source is down or has changed.
+      - name: External map sources
+        run: docker compose -p "$PROJ" exec -T webapp python tests/livecheck_mapsources.py
+
+      - name: Clean up
+        if: always()
+        run: docker compose -p "$PROJ" down -v

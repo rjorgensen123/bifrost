@@ -1,0 +1,37 @@
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.0
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# CI for Bifrost on GitHub: Python syntax check and unit tests, JavaScript syntax check. Runs on every push
+# to main and on pull requests. The same checks run in .gitea/workflows/ci.yml on the internal Gitea; Gitea
+# reads only .gitea/workflows and GitHub only .github/workflows, so nothing runs twice.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    container: python:3.12-slim
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install dependencies
+        run: pip install --no-cache-dir -r webapp/requirements.txt
+
+      - name: Python syntax check (compileall)
+        run: python -m compileall webapp poller
+
+      - name: Unit tests
+        working-directory: webapp
+        run: python -m unittest discover -s tests -v
+
+  js:
+    runs-on: ubuntu-latest
+    container: node:20-slim
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: JavaScript syntax check (node --check)
+        run: for f in webapp/static/*.js; do echo "check $f"; node --check "$f"; done

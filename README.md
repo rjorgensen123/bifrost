@@ -303,8 +303,9 @@ python webapp/app.py              # http://localhost:8123
 python poller/poller.py           # in a second terminal, same DATABASE_URL
 ```
 
-CI (Gitea Actions, `.gitea/workflows/`) runs syntax checks, unit tests and integration tests on every
-push to `review` and `main`.
+CI runs syntax checks, unit tests and integration tests: Gitea Actions (`.gitea/workflows/`) on every push
+to `review` and `main`, and GitHub Actions (`.github/workflows/`) on every push to `main` and on pull
+requests.
 
 ## Documentation and examples
 
