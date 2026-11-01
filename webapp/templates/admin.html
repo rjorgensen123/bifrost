@@ -1,4 +1,4 @@
-{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.0 #}
 {# SPDX-License-Identifier: AGPL-3.0-or-later #}
 {% extends "base.html" %}
 {% block title %}{{ t('nav.admin') }}{% endblock %}
@@ -10,10 +10,7 @@
 {% if demo_mode %}
 <section class="card accent">
   <h2>{{ t('admin.demo') }} <span class="sub">{{ t('admin.demo_sub') }}</span></h2>
-  <form method="post" action="{{ url_for('demo_seed') }}">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit">{{ t('admin.demo_load') }}</button>
-  </form>
+  <p><code>docker compose exec webapp python manage.py seed-demo</code></p>
   <p class="hint">{{ t('admin.demo_hint') }}</p>
 </section>
 {% endif %}

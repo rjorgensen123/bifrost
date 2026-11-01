@@ -65,13 +65,15 @@ psycopg2-binary (libpq, OpenSSL, Kerberos, OpenLDAP and Cyrus SASL) and cryptogr
 
 ## Container images
 
-These are not in the repository either. Docker pulls them when Bifrost is built and started; the exact
-tags are pinned in `webapp/Dockerfile`, `poller/Dockerfile` and `docker-compose.yml`.
+These are not in the repository either. Docker pulls them when Bifrost is built and started, and `alpine`
+when a cold backup or a restore runs; the exact tags are pinned in `webapp/Dockerfile`,
+`poller/Dockerfile`, `docker-compose.yml` and the backup and restore scripts.
 
 | Image | Used for | License |
 |---|---|---|
 | `python` (slim, Debian) | the web app and the poller | Python: PSF-2.0. The Debian packages in the image keep their own licenses. |
 | `timescale/timescaledb` | the database | PostgreSQL: PostgreSQL License. TimescaleDB: Apache-2.0 for the core and the [Timescale License](https://github.com/timescale/timescaledb/blob/main/tsl/LICENSE-TIMESCALE) for the rest, which includes the continuous aggregates and retention policies Bifrost relies on. The Alpine packages in the image keep their own licenses. |
+| `alpine` | short-lived containers in `scripts/backup-cold.sh` and `scripts/restore.sh` that pack and unpack the data volume | Alpine Linux: the packages in the image keep their own licenses, among them BusyBox (GPL-2.0) and musl (MIT). |
 
 Bifrost talks to the database over the network; it does not link with PostgreSQL or TimescaleDB.
 

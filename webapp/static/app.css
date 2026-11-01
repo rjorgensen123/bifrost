@@ -1,4 +1,4 @@
-/* Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.3 */
+/* Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.0 */
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /* Self-hostet Inter (latin) - ingen ekstern font-CDN */
 @font-face{font-family:"Inter";font-style:normal;font-weight:400;font-display:swap;src:url("vendor/fonts/inter-latin-400-normal.woff2") format("woff2")}
@@ -15,7 +15,7 @@
   --bl-900:#181c56; --bl-800:#3a14c6; --bl-600:#4e4feb; --bl-500:#8181f1;
   --bl-300:#b3b3f6; --bl-200:#dfe1fe; --bl-100:#ededfd;
   /* Sort + nøytral */
-  --sort:#0d132d; --neu-100:#f8f8ee; --neu-200:#eeefda;
+  --neu-100:#f8f8ee; --neu-200:#eeefda;
   /* Grønn (signal/aksent) */
   --gr-700:#14dd86; --gr-500:#64f7af; --gr-300:#a5face; --gr-100:#d5ffe9;
 
@@ -25,7 +25,6 @@
   --surface-2:var(--bl-100);
   --border:var(--bl-200);
   --ink:var(--bl-900);
-  --ink-strong:var(--sort);
   --muted:#6e72a6;            /* blålilla-tonet, dempet UI-grå */
   --primary:var(--bl-800);
   --primary-600:var(--bl-600);

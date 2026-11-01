@@ -1,4 +1,4 @@
-{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.0 #}
 {# SPDX-License-Identifier: AGPL-3.0-or-later #}
 {% extends "base.html" %}
 {% block title %}{{ t('nav.log') }}{% endblock %}
@@ -27,7 +27,7 @@
       <tr>
         <td class="mono">{{ e.ts }}</td>
         {# R-085: tema-tokens i stedet for hardkodede farger — org-temaet (G-135) slår gjennom #}
-        <td><span class="tag bf-c-warning bf-c-fff bf-bg-danger"{% if e.level=='WARNING' %}{% elif e.level=='ERROR' %}{% endif %}>{{ e.level }}</span></td>
+        <td><span class="tag{% if e.level=='WARNING' %} bf-c-warning{% elif e.level=='ERROR' %} bf-c-fff bf-bg-danger{% endif %}">{{ e.level }}</span></td>
         <td class="mono muted">{{ e.logger }}</td>
         <td>{{ e.message }}</td>
       </tr>

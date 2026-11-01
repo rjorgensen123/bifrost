@@ -2964,21 +2964,6 @@ def refresh_all_status():
     return render_template("_rescan_status.html", job=inventory_ops.latest_job())
 
 
-@app.route("/admin/demo-seed", methods=["POST"])
-def demo_seed():
-    if not DEMO_MODE:
-        abort(403)
-    import demo_data
-    import maps as _m
-    ifs, _samples = demo_data.load_demo()
-    if ifs:
-        with config() as cx:
-            ids = [r["id"] for r in cx.execute(
-                "SELECT id FROM host WHERE enabled = 1 ORDER BY id").fetchall()]
-        _m._make_map("Demo-backbone", ids)
-    return redirect(url_for("admin"))
-
-
 import maps as _maps
 app.register_blueprint(_maps.maps_bp)
 import ospf as _ospf          # G-160: logisk kart (OSPF)

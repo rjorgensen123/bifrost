@@ -1,11 +1,11 @@
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.0
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.0
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """THIRD_PARTY_LICENSES.md covers everything Bifrost builds on.
 
 Every package in webapp/ and poller/requirements.txt, every file under webapp/static/vendor/ and every
-container image in the Dockerfiles and docker-compose.yml must be listed, and the list must not name
-anything that is no longer there. The files sit at the repository root, so the test runs from a checkout
-(as in CI) and is skipped inside the webapp image, which only holds webapp/.
+container image in the Dockerfiles, docker-compose.yml and the scripts must be listed, and the list must
+not name anything that is no longer there. The files sit at the repository root, so the test runs from
+a checkout (as in CI) and is skipped inside the webapp image, which only holds webapp/.
 """
 import fnmatch
 import os
@@ -60,6 +60,13 @@ def images():
             found |= {m.group(1) for m in re.finditer(r"^FROM\s+(\S+)", f.read(), re.M)}
     with open(os.path.join(ROOT, "docker-compose.yml"), encoding="utf-8") as f:
         found |= {m.group(1) for m in re.finditer(r"^\s*image:\s*(\S+)", f.read(), re.M)}
+    # Images the scripts start with `docker run` (name:tag as its own word on the line).
+    for name in sorted(os.listdir(os.path.join(ROOT, "scripts"))):
+        if name.endswith(".sh"):
+            with open(os.path.join(ROOT, "scripts", name), encoding="utf-8") as f:
+                for line in f:
+                    if "docker run" in line:
+                        found |= {w for w in line.split() if re.fullmatch(r"[a-z0-9][a-z0-9._/-]*:[0-9][\w.-]*", w)}
     return {i.split("@")[0].rsplit(":", 1)[0] for i in found}
 
 

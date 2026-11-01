@@ -63,9 +63,9 @@ This is the **break-glass admin**: one shared password that always works. `ADMIN
 on the very first start; later, change the password under **Admin → Security (Sikkerhet)** or with
 `manage.py set-admin-password`. Everyone else logs in at `/login` with their own account.
 
-**No devices yet?** Set `DEMO_MODE=1`, run `docker compose up -d` and press **Admin → Load demo data
-(Last inn demo-data)**, or run `manage.py seed-demo`: 9 demo routers, 36 hours of history and synthetic
-traffic (empty installations only). `seed-demo` also activates a map of the demo routers.
+**No devices yet?** Set `DEMO_MODE=1`, run `docker compose up -d` and then
+`docker compose exec webapp python manage.py seed-demo`: 9 demo routers, 36 hours of history,
+synthetic traffic and an active map of them (empty installations only).
 
 ## The pages
 

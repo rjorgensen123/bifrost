@@ -1,4 +1,4 @@
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.0
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """G-135: branding stored in the database (not .env or an external CSS file).
 
@@ -52,9 +52,9 @@ TOKEN_TYPES = dict.fromkeys((
     "--accent", "--bad-ink", "--bg", "--bl-100", "--bl-200", "--bl-300", "--bl-500", "--bl-600",
     "--bl-800", "--bl-900", "--border", "--cap-crit", "--cap-high", "--cap-low", "--cap-mid", "--danger",
     "--down", "--faint", "--flow", "--gr-100", "--gr-300", "--gr-500", "--gr-700", "--grid", "--ink",
-    "--ink-strong", "--line", "--lsp", "--muted", "--neu-100", "--neu-200", "--nf", "--nf-ink", "--ok-ink",
+    "--line", "--lsp", "--muted", "--neu-100", "--neu-200", "--nf", "--nf-ink", "--ok-ink",
     "--on-bg", "--primary", "--primary-600", "--role-cdn-bg", "--role-cdn-ink", "--role-customer-ia",
-    "--role-nni", "--role-peering-bg", "--role-pni-bg", "--role-pni-ink", "--sort", "--surface",
+    "--role-nni", "--role-peering-bg", "--role-pni-bg", "--role-pni-ink", "--surface",
     "--surface-2", "--warning"), "color")
 TOKEN_TYPES.update({"--grad": "gradient", "--ink-rgb": "rgb", "--primary-rgb": "rgb", "--danger-rgb": "rgb",
                     "--font": "font", "--font-display": "font", "--r": "length"})
