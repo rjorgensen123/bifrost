@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.5.1 — Python packages updated for published vulnerabilities (2026-11-23)
+
+- **Python packages updated:** Pillow 13.0.0 (from 12.3.0), certifi 2026.10.18 (from 2026.7.22), pyasn1
+  0.6.5 (from 0.6.4, in both the web application and the poller), requests 2.33.0 (from 2.32.3), Werkzeug
+  3.1.9 (from 3.1.8) and Flask 3.1.3 (from 3.1.0). These versions fix published vulnerabilities in the
+  packages. Bifrost behaves as before.
+
 ## 2.5.0 — The repository starts over (2026-11-01)
 
 ### Note — the history starts here, on purpose
