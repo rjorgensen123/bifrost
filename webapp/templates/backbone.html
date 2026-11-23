@@ -1,4 +1,4 @@
-{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.3 #}
 {# SPDX-License-Identifier: AGPL-3.0-or-later #}
 {% extends "base.html" %}
 {% block title %}{{ t('nav.backbone') }}{% endblock %}
@@ -15,7 +15,9 @@
       <option value="36mo">{{ t('range.months', n=36) }}</option>
       <option value="48mo">{{ t('range.months', n=48) }}</option>
     </select>
+    <button data-v="custom">{{ t('range.custom') }}</button>
   </div>
+  {% include "_range_custom.html" %}
   <div class="seg" id="dir">
     <button data-v="total" class="on">{{ t('dir.total') }}</button>
     <button data-v="in">{{ t('dir.in') }}</button>
@@ -38,7 +40,7 @@
 
 {% block scripts %}
 <script nonce="{{ csp_nonce }}">
-  const state = { range: "36h", dir: "total", zoom: null };
+  const state = { range: "36h", dFrom: "", dTo: "", dir: "total", zoom: null };
   const DIR_LABEL = { total: {{ t('dir.total')|tojson }}, in: {{ t('dir.in')|tojson }}, out: {{ t('dir.out')|tojson }} };
   function onZoom(f, t) { state.zoom = { from: f, to: t }; refresh(); }         // G-278: dra-marker → zoom
   function onResetZoom() { if (state.zoom) { state.zoom = null; refresh(); } }  // G-278: dblklikk → tilbake
@@ -51,15 +53,18 @@
 
   function refresh() {
     const dl = DIR_LABEL[state.dir] || "";
-    const win = state.zoom ? `&from=${state.zoom.from}&to=${state.zoom.to}` : "";   // G-278
+    // the period (fixed range or Custom dates), the direction and, when zoomed, the zoom window
+    const q = `${periodQuery(state)}&dir=${state.dir}`
+            + (state.zoom ? `&from=${state.zoom.from}&to=${state.zoom.to}` : "");
     const rl = document.getElementById("res-label");
     if (rl) rl.textContent = state.zoom
       ? zoomResLabel(state.zoom.from, state.zoom.to) + " · " + {{ t('chart.zoomed')|tojson }}
-      : resLabel(state.range);
-    loadInto(bbChart, `{{ url_for('api_backbone') }}?range=${state.range}&dir=${state.dir}${win}`, dl);
-    loadInto(bbCust,  `{{ url_for('api_backbone_customers') }}?range=${state.range}&dir=${state.dir}${win}`, dl);
+      : resLabel(state.range, state.dFrom, state.dTo);
+    loadInto(bbChart, `{{ url_for('api_backbone') }}?${q}`, dl, rl);
+    loadInto(bbCust,  `{{ url_for('api_backbone_customers') }}?${q}`, dl, rl);
   }
-  bindRange(v => { state.range = v; state.zoom = null; refresh(); });   // nytt preset nullstiller zoom
+  // a newly chosen period (fixed, or Custom with its dates) resets the zoom
+  bindRange((v, dFrom, dTo) => { state.range = v; state.dFrom = dFrom; state.dTo = dTo; state.zoom = null; refresh(); });
   bindSeg("dir",   v => { state.dir   = v; refresh(); });
   refresh();
   setInterval(refresh, 60000);

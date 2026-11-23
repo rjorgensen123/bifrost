@@ -1,0 +1,9 @@
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.3 #}
+{# SPDX-License-Identifier: AGPL-3.0-or-later #}
+{# The two date fields of the Custom period. Included right after the row of period buttons, which
+   holds the button that shows them (data-v="custom"); bindRange in static/charts.js fills, shows and
+   hides them. #}
+<div class="row" id="range-custom" hidden>
+  <label>{{ t('range.from') }} <input type="date" id="range-from" min="1970-01-01"></label>
+  <label>{{ t('range.to') }} <input type="date" id="range-to"></label>
+</div>

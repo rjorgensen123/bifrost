@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.5.3 — Custom period on the graph pages (2026-11-23)
+
+- **Custom period on the graph pages:** Internet, Backbone and History have a Custom button next to the
+  fixed periods. It shows two date fields, From and To, filled with the period on screen; the graphs then
+  cover those whole days, in the installation's time zone. Zooming works inside a custom period as in any
+  other.
+- **History:** the Date field is replaced by Custom — one day is the same date in From and To — and the
+  marked period always matches what the graph shows.
+
 ## 2.5.2 — Link width on the physical map shows capacity (2026-11-23)
 
 - **Link width shows capacity on the physical map:** the width of a link follows its capacity in fixed

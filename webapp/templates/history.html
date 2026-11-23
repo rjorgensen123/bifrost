@@ -1,4 +1,4 @@
-{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.3 #}
 {# SPDX-License-Identifier: AGPL-3.0-or-later #}
 {% extends "base.html" %}
 {% block title %}{{ t('nav.history') }}{% endblock %}
@@ -14,8 +14,9 @@
       <button data-v="30d">{{ t('range.days', n=30) }}</button>
       <button data-v="90d">{{ t('range.days', n=90) }}</button>
       <button data-v="12mo">{{ t('range.months', n=12) }}</button>
+      <button data-v="custom">{{ t('range.custom') }}</button>
     </div>
-    <label>{{ t('history.date') }} <input type="date" id="h-date"></label>
+    {% include "_range_custom.html" %}
     <span class="reslabel" id="h-res"></span>
   </div>
   <div id="h-chart" class="chart"></div>
@@ -28,12 +29,11 @@
   const D = JSON.parse(document.getElementById("hist-data").textContent);
   const hostSel = document.getElementById("h-host");
   const ifSel   = document.getElementById("h-iface");
-  const dateInp = document.getElementById("h-date");
   const resEl   = document.getElementById("h-res");
   function onZoom(f, t) { state.zoom = { from: f, to: t }; refresh(); }         // G-278: dra-marker → zoom
   function onResetZoom() { if (state.zoom) { state.zoom = null; refresh(); } }  // G-278: dblklikk → tilbake
   const chart   = makeChart("h-chart", null, { onZoom, onResetZoom });  // G-85 farger + G-278 zoom
-  const state   = { range: "36h", date: "", zoom: null };
+  const state   = { range: "36h", dFrom: "", dTo: "", zoom: null };
 
   D.hosts.forEach(h => hostSel.add(new Option(h.name, h.id)));
 
@@ -45,11 +45,13 @@
 
   async function refresh() {
     if (!ifSel.value) { chart.clear(); resEl.textContent = ""; return; }
-    let url = `{{ url_for('api_history') }}?interface=${ifSel.value}`;
-    url += state.zoom ? `&from=${state.zoom.from}&to=${state.zoom.to}`          // G-278: zoom-vindu
-                      : state.date ? `&date=${state.date}` : `&range=${state.range}`;
+    // the period (fixed range or Custom dates) and, when zoomed, the zoom window
+    const url = `{{ url_for('api_history') }}?interface=${ifSel.value}&${periodQuery(state)}`
+              + (state.zoom ? `&from=${state.zoom.from}&to=${state.zoom.to}` : "");
     try {
-      const d = await (await fetch(url)).json();
+      const r = await fetch(url), d = await r.json();
+      // a rejected request (such as a Custom period with unusable dates) shows the server's reason
+      if (!r.ok) { resEl.textContent = d.msg || ""; chart.fail(); return; }
       resEl.textContent = tidyRes(d.resolution, d.res_code) + (state.zoom ? " · " + {{ t('chart.zoomed')|tojson }} : "");
       if (!d.t || !d.t.length) { chart.clear(); return; }
       chart.setData(d, "");
@@ -58,13 +60,9 @@
 
   hostSel.addEventListener("change", () => { fillIfaces(); refresh(); });
   ifSel.addEventListener("change", refresh);
-  dateInp.addEventListener("change", () => { state.date = dateInp.value; state.zoom = null; refresh(); });
-  document.querySelectorAll("#h-range button").forEach(b =>
-    b.addEventListener("click", () => {
-      document.querySelectorAll("#h-range button").forEach(x => x.classList.remove("on"));
-      b.classList.add("on"); state.range = b.dataset.v;
-      state.date = ""; dateInp.value = ""; state.zoom = null; refresh();   // nytt valg nullstiller zoom
-    }));
+  // a newly chosen period (fixed, or Custom with its dates) resets the zoom
+  bindRange((v, dFrom, dTo) => { state.range = v; state.dFrom = dFrom; state.dTo = dTo; state.zoom = null; refresh(); },
+            "h-range");
 
   if (D.hosts.length) { hostSel.value = D.hosts[0].id; fillIfaces(); refresh(); }
 })();

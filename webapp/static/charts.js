@@ -1,4 +1,4 @@
-// Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.8
+// Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.3
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /* uPlot helpers for bifrost */
 
@@ -221,14 +221,23 @@ function makeChart(elId, colors, opts) {
   return { setData, clear, fail, setRecord, reset };
 }
 
-async function loadInto(chart, url, viewLabel) {
+/* Fetch a graph and draw it. A request the server rejects with a reason (HTTP 400 and a JSON
+   "msg", as for a Custom period with unusable dates) puts that reason in errEl when one is given. */
+async function loadInto(chart, url, viewLabel, errEl) {
   /* G-147: sekvens-vakt — bytter brukeren spenn/retning raskt kan et TREGT, eldre svar lande
      ETTER det nyeste og stille overskrive grafen med feil tall. Bare siste utsendte vinner. */
   const seq = (chart._seq = (chart._seq || 0) + 1);
   try {
     const r = await fetch(url);
     if (seq !== chart._seq) return;                  // nyere lasting i gang — forkast
-    if (!r.ok || r.redirected) { chart.fail(); return; }   // R-062: vis feil, ikke «ingen data»
+    if (!r.ok || r.redirected) {
+      chart.fail();                                  // show the failure, not "no data"
+      if (errEl && r.status === 400) {
+        const err = await r.json().catch(() => null);
+        if (err && err.msg && seq === chart._seq) errEl.textContent = err.msg;
+      }
+      return;
+    }
     const payload = await r.json();
     if (seq !== chart._seq) return;
     chart.setData(payload, viewLabel);
@@ -249,9 +258,74 @@ function bindSeg(id, cb) {
   });
 }
 
-/* G-281: oppløsnings-etikett per spenn (variant C — vises ved range-knappene). Speiler
-   den faktiske kilden: 36h=rå 5-min, 7d/30d=1t-cagg, 12/24/36/48mo=1d-cagg (tz-bevisst). */
-function resLabel(range) {
+/* Whole days ("YYYY-MM-DD") for the Custom period. A day is a day in the installation's time zone
+   (window.APP_TZ), as on the server — never the browser's zone. */
+function tzParts(ms) {
+  const p = {};
+  new Intl.DateTimeFormat("en-US", { timeZone: window.APP_TZ || "Europe/Oslo", hourCycle: "h23",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+    second: "2-digit" }).formatToParts(new Date(ms)).forEach(x => { p[x.type] = Number(x.value); });
+  return p;
+}
+
+/* The date an instant (epoch ms) falls on in the installation's time zone. */
+function appDate(ms) {
+  const p = tzParts(ms);
+  return new Date(Date.UTC(p.year, p.month - 1, p.day)).toISOString().slice(0, 10);
+}
+
+/* A date moved n calendar days (negative = earlier). */
+function addDays(ymd, n) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+/* A date as a number, for comparing two dates. */
+function dayNum(ymd) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return Date.UTC(y, m - 1, d);
+}
+
+/* Epoch seconds of the start of a date in the installation's time zone, as the server computes it.
+   The zone's UTC offset is read a day before and a day after; the two differ only when the clocks
+   change near this midnight. A midnight that then occurs twice is the first of the two, and a
+   midnight the clocks skip is the instant that day starts. */
+function appMidnight(ymd) {
+  const wall = dayNum(ymd), DAY = 86400000;
+  const offset = ms => {
+    const p = tzParts(ms);
+    return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - ms;
+  };
+  const cand = [wall - offset(wall - DAY), wall - offset(wall + DAY)];
+  const hits = cand.filter(t => offset(t) === wall - t);
+  return (hits.length ? Math.min(...hits) : Math.max(...cand)) / 1000;
+}
+
+/* The date a fixed period starts on: what the Custom fields are filled with when Custom is chosen.
+   The spans are the server's (whole days; anything else is the 36-hour default). */
+const RANGE_DAYS = { "7d": 7, "30d": 30, "90d": 90, "12mo": 365, "24mo": 730, "36mo": 1095, "48mo": 1460 };
+function rangeStartDate(range) {
+  const days = RANGE_DAYS[range];
+  return days ? addDays(appDate(Date.now()), -days) : appDate(Date.now() - 36 * 3600 * 1000);
+}
+
+/* The period part of a graph URL from the page's state: the fixed range, or the Custom period's
+   dates. An empty To date is left out, which the server reads as a one-day period. */
+function periodQuery(s) {
+  if (s.range !== "custom") return "range=" + s.range;
+  return "d_from=" + encodeURIComponent(s.dFrom) + (s.dTo ? "&d_to=" + encodeURIComponent(s.dTo) : "");
+}
+
+/* The resolution label shown by the period buttons. It mirrors the source the server reads: 36 h is
+   raw 5-minute data, 7 d/30 d the hourly aggregate, the month spans the daily aggregate. A Custom
+   period (range "custom" with its two dates) gets the resolution of its window, the To date
+   included and never past now, by the same rule as a zoom window. */
+function resLabel(range, dFrom, dTo) {
+  if (range === "custom") {
+    const today = appDate(Date.now());
+    const last = dayNum(dTo || dFrom) > dayNum(today) ? today : (dTo || dFrom);
+    return zoomResLabel(appMidnight(dFrom), Math.min(appMidnight(addDays(last, 1)), Date.now() / 1000));
+  }
   if (range === "36h") return i18n.t("js.res.5min");
   if (range === "7d" || range === "30d") return i18n.t("js.res.1h");
   return i18n.t("js.res.1d");            // 12/24/36/48mo
@@ -278,25 +352,55 @@ function tidyRes(r, code) {
   return r;
 }
 
-/* G-281: range-velger med BÅDE knapper (36t/7d/30d) OG dropdown (12/24/36/48mnd i samme seg).
-   Én av delene er aktiv om gangen — knapp får .on, ellers får dropdownen .on. */
-function bindRange(cb) {
-  const box = document.getElementById("range");
+/* The period selector: a row of buttons, an optional dropdown for the long spans (.seg-sel in the
+   same row) and the Custom button (data-v="custom") with its two date fields
+   (templates/_range_custom.html). Exactly one of them is marked .on at a time.
+     cb(range, dFrom, dTo)   a fixed period: (its data-v / option value, "", "")
+                             Custom: ("custom", "YYYY-MM-DD", "YYYY-MM-DD" or "" for one day)
+   Choosing Custom fills the fields with the fixed period that was selected (its start date to
+   today) and shows them; choosing a fixed period hides and empties them. boxId is the row's id
+   ("range" when left out). */
+function bindRange(cb, boxId) {
+  const box = document.getElementById(boxId || "range");
   if (!box) return;
   const sel = box.querySelector(".seg-sel");
+  const fields = document.getElementById("range-custom");
+  const dFrom = document.getElementById("range-from"), dTo = document.getElementById("range-to");
+  const mark = el => {
+    box.querySelectorAll("button").forEach(x => x.classList.remove("on"));
+    if (sel) sel.classList.remove("on");
+    el.classList.add("on");
+  };
+  const fixed = (el, v) => {
+    mark(el);
+    if (fields) { fields.hidden = true; dFrom.value = dTo.value = ""; }
+    cb(v, "", "");
+  };
   box.addEventListener("click", e => {
     const b = e.target.closest("button");
     if (!b) return;
-    box.querySelectorAll("button").forEach(x => x.classList.remove("on"));
-    b.classList.add("on");
-    if (sel) sel.classList.remove("on");
-    cb(b.dataset.v);
+    if (b.dataset.v !== "custom") { fixed(b, b.dataset.v); return; }
+    if (!fields || b.classList.contains("on")) return;   // already chosen: the dates are the user's
+    const on = box.querySelector("button.on");
+    const today = appDate(Date.now());
+    dFrom.value = rangeStartDate(sel && sel.classList.contains("on") ? sel.value : on && on.dataset.v);
+    dTo.value = today;
+    dFrom.max = dTo.max = today;        // neither date can be after today,
+    dTo.min = dFrom.value;              // and To cannot be before From
+    mark(b);
+    fields.hidden = false;
+    cb("custom", dFrom.value, dTo.value);
   });
-  if (sel) sel.addEventListener("change", () => {
-    box.querySelectorAll("button").forEach(x => x.classList.remove("on"));
-    sel.classList.add("on");
-    cb(sel.value);
-  });
+  if (sel) sel.addEventListener("change", () => fixed(sel, sel.value));
+  if (fields) [dFrom, dTo].forEach(inp => inp.addEventListener("change", () => {
+    dFrom.max = dTo.max = appDate(Date.now());           // today may have changed since Custom was chosen
+    if (inp === dFrom && dFrom.value && dFrom.checkValidity() && dTo.value && dayNum(dFrom.value) > dayNum(dTo.value))
+      dTo.value = dFrom.value;                           // a From after To moves To along
+    dTo.min = dFrom.value;
+    // Only dates the fields accept are fetched: an emptied From waits for a date, and a year being
+    // typed passes through dates long before any data.
+    if (dFrom.value && dFrom.checkValidity() && dTo.checkValidity()) cb("custom", dFrom.value, dTo.value);
+  }));
 }
 
 /* Admin: expand/collapse interface-panel per host.

@@ -1,4 +1,4 @@
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.2
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """bifrost web app: admin (config in Postgres) + view (graphs from TimescaleDB)."""
 import os
@@ -45,7 +45,7 @@ log = logging.getLogger("bifrost.app")
 
 # The current version, defined here and nowhere else. The footer, /about, /healthz and the
 # User-Agent toward tile servers and NetBox all read __version__; a new version changes only this line.
-__version__ = "2.5.2"
+__version__ = "2.5.3"
 APP_NAME = "Bifrost"
 
 import mapsources
@@ -1120,19 +1120,43 @@ def api_flowmap():
     return jsonify(data)
 
 
-def _win():
-    """G-278 (graf-zoom): valgfritt fritt tidsvindu fra ?from=&to= (epoch-sek). Returnerer
-    (frm,to) eller None. Validerer at begge er tall, to>frm med minst 60s spenn, ikke-negativt.
-    Tilgang arves fra graf-endepunktets egen scope-sjekk (ikke egen admin-lås) — se G-279."""
+def _zoom_win():
+    """The free window from ?from=&to= (epoch seconds), as (frm, to), or None when it is missing or
+    not usable: both must be finite numbers (NaN or infinity would fail in to_timestamp), not
+    negative, and at least 60 seconds apart."""
     try:
         frm = float(request.args["from"]); to = float(request.args["to"])
     except (KeyError, ValueError, TypeError):
         return None
-    if not (math.isfinite(frm) and math.isfinite(to)):   # G-304: avvis NaN/inf → ellers to_timestamp-500
+    if not (math.isfinite(frm) and math.isfinite(to)):
         return None
     if frm < 0 or to <= 0 or (to - frm) < 60:
         return None
     return (frm, to)
+
+
+def _win():
+    """The time window a graph endpoint was asked for, as (frm, to) in epoch seconds, or None when
+    the `range` preset applies. A usable zoom window (?from=&to=) wins. Otherwise ?d_from=&d_to=
+    (whole dates, YYYY-MM-DD; d_to is inclusive and defaults to d_from) give the window with day
+    boundaries in the installation's time zone. A date or period that cannot be used — an end date
+    without a start date included — ends the request with a 400 and a JSON body, so every caller
+    gets the same answer without handling it.
+    Access is not checked here: each endpoint does its own scope check before it reads the window."""
+    zoom = _zoom_win()
+    if zoom:
+        return zoom
+    d_from, d_to = request.args.get("d_from"), request.args.get("d_to")
+    if not d_from:
+        if d_to:
+            abort(make_response(jsonify(error="bad_date", msg=i18n.t("msg.app.bad_date")), 400))
+        return None
+    try:
+        return queries.date_window(d_from, d_to, app_tz().key, time.time())
+    except queries.BadDate:
+        abort(make_response(jsonify(error="bad_date", msg=i18n.t("msg.app.bad_date")), 400))
+    except queries.BadPeriod:
+        abort(make_response(jsonify(error="bad_period", msg=i18n.t("msg.app.bad_period")), 400))
 
 
 @app.route("/api/main")

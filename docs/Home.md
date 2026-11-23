@@ -47,7 +47,7 @@ page); this page gives the Norwegian labels in parentheses.
 | **Maps** (Kart ▾) | Physical maps of the network, with each link coloured by load. |
 | **Logical maps** (Logisk ▾) | OSPF maps that draw themselves, one per area, plus maps of routers you pick. |
 | **Peaks** (Trafikk-topper, the «All-time ▸» button) | The highest traffic per series for today, this week, month and year, and all time. Shown for 5-minute spikes and for 1-hour sustained load, as a table or a trend graph. |
-| **History** (Verktøy ▾ → Historikk) | One interface, in and out, going back in time or on a chosen date. |
+| **History** (Verktøy ▾ → Historikk) | One interface, in and out, going back in time or over the dates you choose. |
 | **Inventory** (Inventar) | The same host list and categories as Admin, read-only. |
 | **Log** (Logg) | An event log: logins, user and access changes, host and interface changes. Entries are kept for 180 days. |
 | **Info screens** (Infoscreens) | Set up NOC screens that rotate through chosen maps and graphs. |
@@ -56,7 +56,8 @@ page); this page gives the Norwegian labels in parentheses.
 | **About** (Om, the version badge) | App, database and poller status. Operators and admins also see how much data is stored and how fresh it is. |
 
 Graphs cover 36 hours (5-minute points), a week or a month (hourly points) and 12 to 48 months (daily
-points). Drag across a graph to zoom in, and Bifrost fetches finer data for that span.
+points). **Custom** shows a period you choose, from one date to another. Drag across a graph to zoom in,
+and Bifrost fetches finer data for that span.
 
 ## Maps
 

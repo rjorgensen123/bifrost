@@ -1,4 +1,4 @@
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.0
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """
 Rate queries.
@@ -13,8 +13,11 @@ config tables — it keeps scoping/filtering in one place and the query unchange
   2. bucket per interface:       average per-sample rates into time_bucket()
   3. aggregate across interfaces: SUM() per role / counterparty
 """
+import datetime as _dt
 import logging
+import re
 import time
+from zoneinfo import ZoneInfo
 import i18n
 from db import cursor, config, LOCK_PEAK_FOLD, warn_throttled
 
@@ -34,6 +37,57 @@ def _window_tier(frm, to):
     if span <= 100 * day:
         return ("1h", None)
     return ("1d", None)
+
+
+class BadDate(ValueError):
+    """A date that is not a calendar date written YYYY-MM-DD."""
+
+
+class BadPeriod(ValueError):
+    """A period that ends before it starts, or that has not started yet."""
+
+
+_ISO_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+
+
+def _iso_date(text):
+    """The date for a YYYY-MM-DD string. Only that one form is accepted: date.fromisoformat alone
+    also takes the basic and the week forms (20260610, 2026-W24-3)."""
+    if not isinstance(text, str) or not _ISO_DATE.fullmatch(text):
+        raise BadDate(text)
+    try:
+        return _dt.date.fromisoformat(text)
+    except ValueError:
+        raise BadDate(text) from None
+
+
+def date_window(d_from, d_to, tz_name, now):
+    """The window (frm, to) in epoch seconds for the whole dates d_from..d_to, both YYYY-MM-DD and
+    d_to inclusive; an empty d_to means the single day d_from. The window runs from the start of
+    d_from to the start of the day after d_to, with the day boundaries at local midnight in the
+    time zone tz_name — so a day with a daylight-saving change is 23 or 25 hours long. An end after
+    `now` (epoch seconds) is cut to `now`: there are no samples after it.
+    A day that has only just begun still gets the 60 seconds a window needs.
+    Raises BadDate for a date that is not YYYY-MM-DD, and BadPeriod when d_to is before d_from or
+    d_from is after today."""
+    tz = ZoneInfo(tz_name)
+    first = _iso_date(d_from)
+    last = _iso_date(d_to) if d_to else first
+    if last < first:
+        raise BadPeriod(f"{d_to} is before {d_from}")
+    today = _dt.datetime.fromtimestamp(now, tz).date()
+    if first > today:
+        raise BadPeriod(f"{d_from} has not started")
+    # A last day after today ends at `now` whatever the date is; capping it at today keeps
+    # "the day after" inside the range a date can hold (9999-12-31 has no day after).
+    last = min(last, today)
+
+    def midnight(day):
+        return _dt.datetime(day.year, day.month, day.day, tzinfo=tz).timestamp()
+
+    frm = midnight(first)
+    to = min(midnight(last + _dt.timedelta(days=1)), float(now))
+    return (frm, max(to, frm + 60))
 
 # G-141/R-007: kilde per spenn — 36t = rå rate-at-query-time, 7d/30d = 1h-aggregatet, 12–48 mnd =
 # tidssone-bevisst 1d-aggregat (G-281). Rå data har 90 d retention; en counter-reset i en bøtte gir

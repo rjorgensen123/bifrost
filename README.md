@@ -1,4 +1,4 @@
-# Bifrost  (v2.5.2)
+# Bifrost  (v2.5.3)
 
 > **This repository is a mirror.** Development happens elsewhere and is pushed here;
 > every sync overwrites what is here, so a pull request cannot be merged and a commit
@@ -71,7 +71,7 @@ synthetic traffic and an active map of them (empty installations only).
 
 | Page (Norwegian label) | What it shows |
 |---|---|
-| Internet (Internett) | Overview (total, transit, everything else), per customer and per category. The total counts only traffic leaving the network (IX, PNI, CDN, transit, peering). Ranges from 36 hours to 48 months; drag in a graph to zoom. |
+| Internet (Internett) | Overview (total, transit, everything else), per customer and per category. The total counts only traffic leaving the network (IX, PNI, CDN, transit, peering). Ranges from 36 hours to 48 months, or a custom period between two dates; drag in a graph to zoom. |
 | Backbone | Core, distribution, NNI and transport customers as separate lines. |
 | Distribution (Fordeling) | Hub and spokes: whom you exchange traffic with, per ASN or per function, now or over 1 or 24 hours. |
 | Maps (Kart) | Physical maps with load per link, coloured by utilisation. Each half of a link shows its own end, so a one-sided fault is visible. Click a link for its graph. |
