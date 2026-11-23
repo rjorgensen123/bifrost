@@ -1,16 +1,17 @@
-{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.8 #}
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.4 #}
 {# SPDX-License-Identifier: AGPL-3.0-or-later #}
 <tr class="editing">
   <td colspan="3">
     <div class="user-edit">
       <strong>{{ t('users.change_password_for', name=u.username) }}</strong>
       <div class="row">
-        <input name="password" type="password" placeholder="{{ t('users.ph_new_password') }}" autofocus>
+        <input name="password" type="password" placeholder="{{ t('users.ph_new_password', n=pw_min) }}" autofocus>
         <button class="sm" hx-post="{{ url_for('set_user_password', uid=u.id) }}"
                 hx-include="closest tr" hx-target="#users" hx-swap="outerHTML">{{ t('users.save_password') }}</button>
         <button class="ghost sm" hx-get="{{ url_for('user_row', uid=u.id) }}"
                 hx-target="closest tr" hx-swap="outerHTML">{{ t('common.cancel') }}</button>
       </div>
+      <span class="hint">{{ pw_rule }}</span>
     </div>
   </td>
 </tr>

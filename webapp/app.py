@@ -66,16 +66,25 @@ _inv.start_worker()   # bakgrunns-re-skann-worker (G-027)
 # som aldri endrer noe er ihvertfall ikke trivielt gjettbar av generiske bots. NB: et
 # dokumentert default er fortsatt offentlig kjent — den reelle vernen er force-change under.
 _DEFAULT_ADMIN_PW = "change-me-soon"
+_KNOWN_DEFAULT_PWS = (_DEFAULT_ADMIN_PW, "admin")   # the built-in default, and the one older versions used
 try:                                              # G-122: DB-trygt ved oppstart — kræsj ikke om DB er nede
     if not auth.admin_is_set():
         _seed = os.environ.get("ADMIN_PASSWORD") or _DEFAULT_ADMIN_PW
-        auth.set_admin_pw(_seed)
-        if _seed in (_DEFAULT_ADMIN_PW, "admin"):        # kjent default (inkl. eldre 'admin') → tving bytte
-            auth.set_setting("admin_must_change", "1")   # G-11: tving bytte fra standard
+        _must_change = auth.seed_needs_change(_seed, _KNOWN_DEFAULT_PWS)
+        auth.set_admin_pw(_seed, must_change=_must_change)
+        if _seed in _KNOWN_DEFAULT_PWS:                  # a known default: must be replaced at the first login
             app.logger.warning(
                 "Admin-passord var ikke satt eksplisitt — bruker det innebygde "
                 "standardpassordet '%s'. Bytt det STRAKS under Admin -> Sikkerhet, eller med "
                 "`python manage.py set-admin-password`.", _seed)
+        elif _must_change:
+            # ADMIN_PASSWORD is set, but it does not follow the password rule: it works for the
+            # first login, and a new one has to be chosen there.
+            app.logger.warning(
+                "ADMIN_PASSWORD does not follow the password rule (%d to %d characters; English "
+                "letters, digits and %s). It works for the first login, where a new password must "
+                "be chosen.", auth.MIN_ADMIN_PASSWORD_LEN, auth.MAX_PASSWORD_LEN,
+                " ".join(auth.PASSWORD_SPECIALS))
 except Exception as _e:                            # noqa: BLE001 — bootstrap kjøres via setup-flyten når DB er oppe
     log.warning("admin-bootstrap utsatt (DB utilgjengelig ved oppstart?): %s", _e)
 
@@ -336,7 +345,8 @@ def inject_globals():
         log.exception("inject_globals: ACL-oppslag feilet (ikke DB)")
         _adm = _opr = bool(session.get("admin"))
     return {
-        "min_pw": MIN_PASSWORD_LEN, "app_tz_name": app_tz_name,
+        "min_pw": MIN_PASSWORD_LEN, "min_admin_pw": auth.MIN_ADMIN_PASSWORD_LEN,
+        "pw_rule": auth.password_rule(), "app_tz_name": app_tz_name,
         "version": __version__, "app_name": APP_NAME, "year": datetime.now(app_tz()).year,
             "is_admin": _adm,
             "is_operator": _opr,
@@ -485,8 +495,10 @@ def _seed_admin_from_env():
     if not env_pw:
         return False
     try:
-        auth.set_admin_pw(env_pw)
-        log.warning("admin-passord seedet fra ADMIN_PASSWORD (utsatt boot-seeding)")
+        must_change = auth.seed_needs_change(env_pw, _KNOWN_DEFAULT_PWS)   # as at the first start
+        auth.set_admin_pw(env_pw, must_change=must_change)
+        log.warning("admin password set from ADMIN_PASSWORD after the start-up attempt was skipped%s",
+                    "; it has to be replaced at the first login" if must_change else "")
         return True
     except Exception:                                 # noqa: BLE001 — DB fortsatt nede; prøv neste request
         return False
@@ -549,7 +561,8 @@ def _gate():
                 return jsonify(error="timeout"), 401
             return _gate_redirect(url_for("login_admin", next=p, expired=1))
         session["admin_seen"] = int(time.time())      # skyv inaktivitets-vinduet
-        # G-11: standardpassordet 'admin' må byttes før admin kan gjøre noe annet.
+        # An admin password that has to be replaced (a built-in default, or one from the environment
+        # that does not follow the password rule) is replaced before the admin can do anything else.
         try:                                          # G-122: must-change-sjekken er DB-avhengig
             must_change = auth.admin_must_change()
         except psycopg2.Error:                        # DB nede -> ikke blokker; DB-feil fanges nedstrøms
@@ -706,12 +719,19 @@ def feature_required(feature_id):
     return deco
 
 
-# Passordkrav (G-13): lengde-basert, ikke kompleksitet (lengde > regler).
-# Minimum kan justeres med MIN_PASSWORD_LEN i miljøet (definert i auth, delt med CLI).
+# The password rule (lengths and allowed characters) is defined in auth and shared with the
+# command line; MIN_PASSWORD_LEN in the environment can raise the shortest length.
 MIN_PASSWORD_LEN = auth.MIN_PASSWORD_LEN
 
 
 _password_problem = auth.password_problem
+
+
+def _admin_member(user):
+    """True when the user (an app_user row) is in a group with full access, so the longer
+    password minimum applies."""
+    grp = acl.get_group(user["group_id"]) if user and user.get("group_id") else None
+    return bool(grp and grp["baseline"] == "full")
 
 
 @app.context_processor
@@ -1444,8 +1464,8 @@ def setup():
         pw, pw2 = request.form.get("password", ""), request.form.get("password2", "")
         if pw != pw2:
             return render_template("setup.html", error=i18n.t("msg.app.fields_differ"))
-        if _password_problem(pw):
-            return render_template("setup.html", error=_password_problem(pw))
+        if _password_problem(pw, admin=True):
+            return render_template("setup.html", error=_password_problem(pw, admin=True))
         auth.set_admin_pw(pw)
         _start_admin_session()
         return redirect(url_for("admin"))
@@ -1643,12 +1663,12 @@ def force_change():
         new = f.get("new", "")
         if new != f.get("new2", ""):
             err = i18n.t("msg.app.fields_differ")
-        elif _password_problem(new):
-            err = _password_problem(new)
+        elif _password_problem(new, admin=True):
+            err = _password_problem(new, admin=True)
         else:
             auth.set_admin_pw(new)            # nullstiller must_change
             sessions.destroy_break_glass(keep_sid=session.get("sid"))  # G-301 (F3): revoker gamle admin-økter
-            log.info("admin-passord byttet fra standard (tvungen; andre break-glass-økter revokert)")
+            log.info("admin password replaced at the forced change (other break-glass sessions revoked)")
             return redirect(url_for("admin"))
     return render_template("force_change.html", err=err)
 
@@ -1668,8 +1688,8 @@ def account():
             err = i18n.t("msg.app.current_pw_wrong")
         elif f.get("new") != f.get("new2"):
             err = i18n.t("msg.app.fields_differ")
-        elif _password_problem(f.get("new", "")):
-            err = _password_problem(f.get("new", ""))
+        elif _password_problem(f.get("new", ""), admin=_admin_member(u)):
+            err = _password_problem(f.get("new", ""), admin=_admin_member(u))
         else:
             auth.set_user_pw(uid, f["new"])
             sessions.destroy_for_user(uid, keep_sid=session.get("sid"))   # nytt passord → andre økter ugyldige
@@ -1689,7 +1709,8 @@ def account():
         my_lang = auth.get_user_lang(uid) or ""
     except Exception:                                  # noqa: BLE001
         my_lang = ""
-    return render_template("account.html", msg=msg, err=err,
+    pw_min = auth.MIN_ADMIN_PASSWORD_LEN if _admin_member(auth.get_user(uid)) else MIN_PASSWORD_LEN
+    return render_template("account.html", msg=msg, err=err, pw_min=pw_min,
                            my_sessions=my_sessions,
                            my_passkeys=my_passkeys,
                            languages=i18n.names(), my_lang=my_lang,
@@ -2146,8 +2167,8 @@ def admin_password():
         return '<span class="err">' + i18n.t("msg.app.current_pw_wrong") + '</span>'
     if f.get("new") != f.get("new2"):
         return '<span class="err">' + i18n.t("msg.app.fields_differ") + '</span>'
-    if _password_problem(f.get("new", "")):
-        return '<span class="err">' + _password_problem(f.get("new", "")) + '</span>'
+    if _password_problem(f.get("new", ""), admin=True):
+        return '<span class="err">' + _password_problem(f.get("new", ""), admin=True) + '</span>'
     auth.set_admin_pw(f["new"])
     sessions.destroy_break_glass(keep_sid=session.get("sid"))   # G-301 (F3): revoker gamle admin-økter
     log.info("admin-passord endret (andre break-glass-økter revokert)")
@@ -2190,12 +2211,13 @@ def add_user():
     username, pw = f.get("username", "").strip(), f.get("password", "")
     if not username:
         return _users_partial(i18n.t("msg.app.username_required"))
-    if _password_problem(pw):
-        return _users_partial(_password_problem(pw))
-    if auth.get_user_by_name(username):
-        return _users_partial(i18n.t("msg.app.username_exists", username=username))
     gid = f.get("group_id", type=int)
     grp = acl.get_group(gid) if gid else None
+    prob = _password_problem(pw, admin=bool(grp and grp["baseline"] == "full"))
+    if prob:
+        return _users_partial(prob)
+    if auth.get_user_by_name(username):
+        return _users_partial(i18n.t("msg.app.username_exists", username=username))
     try:
         auth.create_user(username, pw, group_id=grp["id"] if grp else None)
     except psycopg2.errors.UniqueViolation:          # G-323: race mellom sjekk og INSERT
@@ -2241,13 +2263,14 @@ def edit_user_password(uid):
     u = auth.get_user(uid)
     if not u:
         abort(404)
-    return render_template("_user_pw_row.html", u={"id": u["id"], "username": u["username"]})
+    return render_template("_user_pw_row.html", u={"id": u["id"], "username": u["username"]},
+                           pw_min=auth.MIN_ADMIN_PASSWORD_LEN if _admin_member(u) else MIN_PASSWORD_LEN)
 
 
 @app.route("/admin/users/<int:uid>/password", methods=["POST"])
 def set_user_password(uid):
     pw = request.form.get("password", "")
-    prob = _password_problem(pw)
+    prob = _password_problem(pw, admin=_admin_member(auth.get_user(uid)))
     if prob:
         return _users_partial(prob)
     auth.set_user_pw(uid, pw)

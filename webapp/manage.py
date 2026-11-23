@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.3
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.4
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Bifrost CLI — administrer admin-passord og view-brukere.
 
@@ -18,14 +18,16 @@ import logging
 import sys
 
 import db
+import acl
 import auth
 import sessions
 
 
-def _prompt_pw(label):
+def _prompt_pw(label, admin=False):
+    print(auth.password_rule(), file=sys.stderr)
     while True:
         p1 = getpass.getpass(f"{label}: ")
-        problem = auth.password_problem(p1)
+        problem = auth.password_problem(p1, admin=admin)
         if problem:
             print(problem, file=sys.stderr)
             continue
@@ -38,7 +40,7 @@ def _prompt_pw(label):
 def cmd_set_admin(args):
     # G-298: alltid skjult getpass-prompt — passord tas ALDRI som posisjonelt CLI-arg
     # (ville lekket via `ps`/shell-historikk).
-    auth.set_admin_pw(_prompt_pw("Nytt admin-passord"))
+    auth.set_admin_pw(_prompt_pw("Nytt admin-passord", admin=True))
     sessions.destroy_break_glass()        # nytt passord → alle eksisterende admin-økter ugyldige
     print("Admin-passord satt. Alle admin-økter er logget ut.")
 
@@ -47,7 +49,9 @@ def cmd_reset_user(args):
     u = auth.get_user_by_name(args.username)
     if not u:
         sys.exit(f"Fant ingen bruker «{args.username}».")
-    auth.set_user_pw(u["id"], _prompt_pw(f"Nytt passord for {args.username}"))   # G-298: kun prompt
+    grp = acl.get_group(u["group_id"]) if u.get("group_id") else None
+    admin = bool(grp and grp["baseline"] == "full")      # a member of the admin group: the longer minimum
+    auth.set_user_pw(u["id"], _prompt_pw(f"Nytt passord for {args.username}", admin=admin))
     sessions.destroy_for_user(u["id"])    # nytt passord → alle brukerens økter ugyldige
     print(f"Passord for «{args.username}» er oppdatert. Alle økter er logget ut.")
 

@@ -1,4 +1,4 @@
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.4
 # Bifrost CI — Tier C (integrasjon): bygger imagene + booter stacken (MOCK/DEMO) + treffer /healthz.
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Fanger boot-/spørrings-/migrerings-regresjoner som A+B (syntaks+enhetstester) ikke kan. Kjører på
@@ -38,7 +38,7 @@ jobs:
           {
             echo "DB_PASSWORD=ci-test-$$"
             echo "DEMO_MODE=1"
-            echo "ADMIN_PASSWORD=ci-admin-$$"
+            echo "ADMIN_PASSWORD=ci-admin-password-$$"
             echo "PORT=8456"
           } >> .env
 

@@ -1,4 +1,4 @@
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.0
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.4
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Integration CI for Bifrost on GitHub: builds the images, boots the stack in demo mode, waits for /healthz,
 # runs every integration test inside the web app container and then checks the external map sources. The
@@ -25,7 +25,7 @@ jobs:
           {
             echo "DB_PASSWORD=ci-test-${GITHUB_RUN_ID}"
             echo "DEMO_MODE=1"
-            echo "ADMIN_PASSWORD=ci-admin-${GITHUB_RUN_ID}"
+            echo "ADMIN_PASSWORD=ci-admin-password-${GITHUB_RUN_ID}"
           } >> .env
 
       - name: Build

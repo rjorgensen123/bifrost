@@ -1,4 +1,4 @@
-{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.0 #}
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.4 #}
 {# SPDX-License-Identifier: AGPL-3.0-or-later #}
 {% extends "base.html" %}
 {% block title %}{{ t('nav.admin') }}{% endblock %}
@@ -91,11 +91,12 @@
         hx-target="#admin-pw-status" hx-swap="innerHTML"
         data-reset-on-success>
     <input name="current" type="password" placeholder="{{ t('admin.pw_current') }}" required>
-    <input name="new" type="password" placeholder="{{ t('admin.pw_new', n=min_pw) }}" required>
+    <input name="new" type="password" placeholder="{{ t('admin.pw_new', n=min_admin_pw) }}" required>
     <input name="new2" type="password" placeholder="{{ t('admin.pw_repeat') }}" required>
     <button type="submit">{{ t('account.change_password') }}</button>
     <span id="admin-pw-status"></span>
   </form>
+  <p class="hint">{{ pw_rule }}</p>
 </section>
 {% endblock %}
 {% block scripts %}

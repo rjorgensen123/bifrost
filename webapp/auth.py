@@ -1,4 +1,4 @@
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.8
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.4
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Autentisering for bifrost.
 
@@ -8,13 +8,17 @@ To nivaer:
 
 Passord hashes med Argon2id (argon2-cffi). Hashene er enveis.
 """
+import logging
 import os
+import string
 import threading
 
 from argon2 import PasswordHasher
 
 import i18n
 from db import config
+
+log = logging.getLogger("bifrost.auth")
 
 _ph = PasswordHasher(time_cost=4, memory_cost=128 * 1024, parallelism=4)  # 128 MiB, t=4, p=4
 ADMIN_KEY = "admin_pw_hash"
@@ -97,9 +101,15 @@ def admin_is_set() -> bool:
     return bool(get_setting(ADMIN_KEY))
 
 
-def set_admin_pw(pw: str):
-    set_setting(ADMIN_KEY, hash_pw(pw))
-    set_setting("admin_must_change", "0")   # G-11: passordet er nå bevisst satt
+def set_admin_pw(pw: str, must_change=False):
+    """Store the shared admin password together with whether it has to be replaced at the next
+    login. Both are written in one transaction, so a password is never stored without its flag."""
+    hashed = hash_pw(pw)
+    with config() as cx:
+        for key, value in ((ADMIN_KEY, hashed), ("admin_must_change", "1" if must_change else "0")):
+            cx.execute(
+                "INSERT INTO app_setting(key,value) VALUES(%s,%s) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
 
 
 def admin_must_change() -> bool:
@@ -159,15 +169,59 @@ def set_user_lang(uid, lang):
         cx.execute("UPDATE app_user SET lang=%s WHERE id=%s", (lang or None, uid))
 
 
-# Minste passordlengde — delt av web og CLI (manage.py). Justeres med MIN_PASSWORD_LEN i miljøet.
-MIN_PASSWORD_LEN = int(os.environ.get("MIN_PASSWORD_LEN", "12"))
+# The rule for a new password, shared by the web application and the command line (manage.py).
+# Shortest length: 12, or more when MIN_PASSWORD_LEN in the environment says so, and at least 16
+# for an admin (the shared admin password and members of the admin group). Longest length:
+# MAX_PASSWORD_LEN. The only characters allowed are the English letters, the digits and
+# PASSWORD_SPECIALS.
+MAX_PASSWORD_LEN = 64
+PASSWORD_SPECIALS = "!#+-.:=_"
 
 
-def password_problem(pw):
-    """Feilmelding hvis passordet er for kort (G-13), ellers None."""
-    if len(pw) < MIN_PASSWORD_LEN:
-        return i18n.t("msg.auth.pw_too_short", n=MIN_PASSWORD_LEN)
+def shortest_password(value):
+    """The shortest password length for the setting MIN_PASSWORD_LEN: the setting can raise it
+    from 12, never lower it and never past the longest length. Anything else would leave either a
+    weaker rule than intended or one no password can meet."""
+    try:
+        wanted = int(value)
+    except (TypeError, ValueError):
+        log.warning("MIN_PASSWORD_LEN=%r is not a number; the shortest password stays at 12", value)
+        return 12
+    shortest = min(max(wanted, 12), MAX_PASSWORD_LEN)
+    if shortest != wanted:
+        log.warning("MIN_PASSWORD_LEN=%s is outside 12 to %d; using %d", wanted, MAX_PASSWORD_LEN, shortest)
+    return shortest
+
+
+MIN_PASSWORD_LEN = shortest_password(os.environ.get("MIN_PASSWORD_LEN", "12"))
+MIN_ADMIN_PASSWORD_LEN = max(16, MIN_PASSWORD_LEN)
+_PASSWORD_CHARS = frozenset(string.ascii_letters + string.digits + PASSWORD_SPECIALS)
+
+
+def password_problem(pw, admin=False):
+    """Why a new password is refused, as a message for the user, or None when it is accepted.
+    admin=True applies the longer minimum. The rule is applied when a password is chosen; a password
+    stored earlier keeps working at login."""
+    shortest = MIN_ADMIN_PASSWORD_LEN if admin else MIN_PASSWORD_LEN
+    if len(pw) < shortest:
+        return i18n.t("msg.auth.pw_too_short", n=shortest)
+    if len(pw) > MAX_PASSWORD_LEN:
+        return i18n.t("msg.auth.pw_too_long", n=MAX_PASSWORD_LEN)
+    if any(c not in _PASSWORD_CHARS for c in pw):
+        return i18n.t("msg.auth.pw_bad_chars", chars=" ".join(PASSWORD_SPECIALS))
     return None
+
+
+def seed_needs_change(pw, defaults=()):
+    """True when the admin password taken from the environment at the first start has to be
+    replaced at the first login: it is one of the built-in defaults, or it does not follow the rule."""
+    return pw in defaults or password_problem(pw, admin=True) is not None
+
+
+def password_rule():
+    """The rule in one line, shown next to every field where a password is chosen."""
+    return i18n.t("password.rule", min=MIN_PASSWORD_LEN, admin_min=MIN_ADMIN_PASSWORD_LEN,
+                  max=MAX_PASSWORD_LEN, chars=" ".join(PASSWORD_SPECIALS))
 
 
 def create_user(username, pw, group_id=None):

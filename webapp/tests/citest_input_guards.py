@@ -1,4 +1,4 @@
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.3
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.4
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Integration test for the guards that must stop bad input (needs the database).
 
@@ -8,6 +8,9 @@ We test that what should work works, and that what is wrong is stopped:
   - hostile text in a host or map name is shown escaped, never as markup,
   - a graph period given as dates (d_from/d_to) is answered with data when it can be used, and
     with a 400 that says why when it cannot.
+  - a password that breaks the rule is refused when a user is added, when an admin sets a user's
+    password, when a user changes their own, for the shared admin password and at the forced
+    change; a longer one is required of an admin.
 
   # inside the webapp container (WORKDIR /app), once the database is up:
   python tests/citest_input_guards.py
@@ -160,6 +163,109 @@ def run():
     r = cl.get(f"/api/history?interface={iid}&date=yesterday")
     check("period, history: a `date` that is not a date → 400 bad_date",
           r.status_code == 400 and (r.get_json(silent=True) or {}).get("error") == "bad_date", r.status_code)
+
+    # --- passwords: the rule holds wherever one is chosen ---
+    import acl
+    import auth
+    H = {"X-CSRFToken": "t"}
+    user_pw, admin_pw = "citest-pass12", "citest-admin-pass16"      # 13 and 19 allowed characters
+    refused = {"too short": "abc-123", "too long": "a" * 65, "with a space": "citest pass 123",
+               "with a letter outside A-Z": "citestp\u00e5ss12345", "with a currency sign": "citest$pass12345",
+               "with a character that is not on the list": "citest?pass12345"}
+    admin_gid = acl.get_group_by_name("admin")["id"]
+    saved = {k: setting(k) for k in ("admin_pw_hash", "admin_must_change")}
+
+    def forget_attempts():                               # the password-change throttle counts per address
+        with db.config() as cx:
+            cx.execute("DELETE FROM rate_event WHERE bucket LIKE %s", ("pwchg:%",))
+            cx.commit()
+
+    def as_user(name):
+        import sessions as srv
+        u = auth.get_user_by_name(name)
+        ucl = appmod.app.test_client()
+        sid = srv.create("user", u["id"], 3600, ua="citest", ip="127.0.0.1")
+        with ucl.session_transaction() as s:
+            s["uid"], s["uname"], s["login_at"] = u["id"], u["username"], int(time.time())
+            s["csrf"], s["sid"] = "t", sid
+        return ucl
+
+    def exists(name):
+        return auth.get_user_by_name(name) is not None
+
+    def pw_hash(name):
+        return auth.get_user_by_name(name)["pw_hash"]
+
+    try:
+        forget_attempts()
+        for i, (what, pw) in enumerate(refused.items()):
+            cl.post("/admin/users", data={"username": f"citest-pw-{i}", "password": pw}, headers=H)
+            check(f"password, new user: {what} → refused", not exists(f"citest-pw-{i}"))
+        cl.post("/admin/users", data={"username": "citest-pw-user", "password": user_pw}, headers=H)
+        check("password, new user: one that follows the rule → created", exists("citest-pw-user"))
+        cl.post("/admin/users", data={"username": "citest-pw-adm", "password": user_pw, "group_id": admin_gid},
+                headers=H)
+        check("password, new admin: long enough for a user only → refused", not exists("citest-pw-adm"))
+        cl.post("/admin/users", data={"username": "citest-pw-adm", "password": admin_pw, "group_id": admin_gid},
+                headers=H)
+        check("password, new admin: long enough for an admin → created", exists("citest-pw-adm"))
+
+        uid, aid = auth.get_user_by_name("citest-pw-user")["id"], auth.get_user_by_name("citest-pw-adm")["id"]
+        before = pw_hash("citest-pw-user")
+        for what, pw in refused.items():
+            cl.post(f"/admin/users/{uid}/password", data={"password": pw}, headers=H)
+            check(f"password, set for a user: {what} → refused", pw_hash("citest-pw-user") == before)
+        cl.post(f"/admin/users/{uid}/password", data={"password": user_pw + "-new"}, headers=H)
+        check("password, set for a user: one that follows the rule → stored", pw_hash("citest-pw-user") != before)
+        before = pw_hash("citest-pw-adm")
+        cl.post(f"/admin/users/{aid}/password", data={"password": user_pw}, headers=H)
+        check("password, set for an admin: long enough for a user only → refused", pw_hash("citest-pw-adm") == before)
+        cl.post(f"/admin/users/{aid}/password", data={"password": admin_pw + "-new"}, headers=H)
+        check("password, set for an admin: long enough for an admin → stored", pw_hash("citest-pw-adm") != before)
+
+        # a user changes their own password: the group decides the shortest length
+        current, before = user_pw + "-new", pw_hash("citest-pw-user")
+        ucl = as_user("citest-pw-user")
+        bad = "citest pass 123"
+        ucl.post("/account", data={"current": current, "new": bad, "new2": bad}, headers=H)
+        check("password, own: with a space → refused", pw_hash("citest-pw-user") == before)
+        ucl.post("/account", data={"current": current, "new": user_pw, "new2": user_pw}, headers=H)
+        check("password, own: one that follows the rule → stored", pw_hash("citest-pw-user") != before)
+        current, before = admin_pw + "-new", pw_hash("citest-pw-adm")
+        acl_ = as_user("citest-pw-adm")
+        acl_.post("/account", data={"current": current, "new": user_pw, "new2": user_pw}, headers=H)
+        check("password, an admin's own: long enough for a user only → refused", pw_hash("citest-pw-adm") == before)
+        acl_.post("/account", data={"current": current, "new": admin_pw, "new2": admin_pw}, headers=H)
+        check("password, an admin's own: long enough for an admin → stored", pw_hash("citest-pw-adm") != before)
+
+        auth.set_admin_pw(admin_pw)                      # a known shared admin password to change from
+        for what, pw in (("15 characters", "citest-admin-15"), ("with a space", "citest admin pass 16")):
+            r = cl.post("/admin/password", data={"current": admin_pw, "new": pw, "new2": pw}, headers=H)
+            check(f"password, shared admin password: {what} → refused",
+                  'class="err"' in r.get_data(as_text=True) and auth.check_admin_pw(admin_pw))
+        new = admin_pw + "-new"
+        r = cl.post("/admin/password", data={"current": admin_pw, "new": new, "new2": new}, headers=H)
+        check("password, shared admin password: one that follows the rule → stored",
+              'class="ok"' in r.get_data(as_text=True) and auth.check_admin_pw(new))
+
+        # the forced change: nothing else is reachable until a password that follows the rule is chosen
+        auth.set_admin_pw(new, must_change=True)
+        r = cl.get("/admin")
+        check("password, forced change: the admin page leads to the change",
+              r.status_code == 302 and "/force-change" in r.headers.get("Location", ""), r.status_code)
+        cl.post("/admin/force-change", data={"new": "citest-admin-15", "new2": "citest-admin-15"}, headers=H)
+        check("password, forced change: 15 characters → refused", auth.admin_must_change() and auth.check_admin_pw(new))
+        cl.post("/admin/force-change", data={"new": admin_pw, "new2": admin_pw}, headers=H)
+        check("password, forced change: one that follows the rule → stored, and the admin page opens",
+              not auth.admin_must_change() and auth.check_admin_pw(admin_pw) and cl.get("/admin").status_code == 200)
+    finally:
+        for key, value in saved.items():                 # the shared admin password as it was
+            if value is not None:
+                auth.set_setting(key, value)
+        with db.config() as cx:
+            cx.execute("DELETE FROM app_user WHERE username LIKE %s", ("citest-pw-%",))
+            cx.commit()
+        forget_attempts()
 
     failed = [(n, d) for n, ok, d in RESULTS if not ok]
     for n, ok, d in RESULTS:

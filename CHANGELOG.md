@@ -1,7 +1,14 @@
 # Changelog
 
-## 2.5.4 — Quick start (2026-11-23)
+## 2.5.4 — Quick start, password rule (2026-11-23)
 
+- **Password rule:** a new password is 12 to 64 characters — at least 16 for the shared admin password
+  and for members of the admin group — and can hold only the letters A–Z and a–z, digits and
+  `! # + - . : = _`. Anything else is refused, with a message that says why, and the rule is shown next
+  to every field where a password is chosen. A password stored earlier keeps working until it is
+  changed. `MIN_PASSWORD_LEN` can raise the shortest length, and no longer lower it below 12.
+- **`ADMIN_PASSWORD` at the first start:** a password from `.env` that does not follow the rule works
+  for the first login, and a new one has to be chosen there, as with the built-in default.
 - **Quick start:** `docs/quick-start.md` says in a few lines what Bifrost is built around — categories,
   and traffic summed across the routers — and which interfaces to choose so that no traffic is counted
   twice. The README and the overview link to it at the top.

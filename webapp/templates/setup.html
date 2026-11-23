@@ -1,4 +1,4 @@
-{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.3.8 #}
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.4 #}
 {# SPDX-License-Identifier: AGPL-3.0-or-later #}
 {% extends "base.html" %}
 {% block title %}{{ t('setup.title') }}{% endblock %}
@@ -10,8 +10,9 @@
     {% if error %}<p class="err">{{ error }}</p>{% endif %}
     <form method="post" action="{{ url_for('setup') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="field"><label>{{ t('setup.password_min', n=min_pw) }}</label>
-        <input name="password" type="password" autocomplete="new-password" autofocus required></div>
+      <div class="field"><label>{{ t('setup.password_min', n=min_admin_pw) }}</label>
+        <input name="password" type="password" autocomplete="new-password" autofocus required>
+        <span class="hint">{{ pw_rule }}</span></div>
       <div class="field"><label>{{ t('common.repeat_password') }}</label>
         <input name="password2" type="password" autocomplete="new-password" required></div>
       <button type="submit">{{ t('common.save') }}</button>

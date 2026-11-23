@@ -57,7 +57,8 @@ small host (db 512M, webapp 512M, poller 128M) and can be changed in `docker-com
 
 1. Go to **/admin/login**. The normal login page links to it (**Admin login (Admin-innlogging)**).
 2. Log in with `ADMIN_PASSWORD` from `.env`, or `change-me-soon` if you did not set it. With that
-   default, Bifrost makes you choose a new password (at least 12 characters) before anything else.
+   default, or with a password that does not follow the [password rule](#security), Bifrost makes you
+   choose a new one before anything else.
 3. Add the first router under **Admin → Discover via SNMP (Oppdag via SNMP)**. The first graph appears
    after two polls, about 10 minutes.
 
@@ -314,6 +315,11 @@ writes over SNMP (see SNMP above). Protect the surroundings instead: an encrypte
 (LUKS or similar) under the Docker volume, `chmod 600 .env`, and encrypted backups for anything that
 leaves the server. Every change needs a CSRF token, login attempts are rate-limited, and only hashed
 session IDs are stored. Use TLS and a fixed `SECRET_KEY` when the app can be reached from outside.
+
+**Password rule.** A password is 12 to 64 characters, and at least 16 for the shared admin password
+and for members of the admin group. It can hold only the letters A–Z and a–z, digits and
+`! # + - . : = _`; anything else is refused. The rule is applied when a password is chosen: one stored
+earlier keeps working until it is changed. `MIN_PASSWORD_LEN` raises the shortest length.
 
 ## Development
 

@@ -1,4 +1,4 @@
-{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2 #}
+{# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.4 #}
 {# SPDX-License-Identifier: AGPL-3.0-or-later #}
 {% extends "base.html" %}
 {% block title %}{{ t('nav.my_page') }}{% endblock %}
@@ -24,8 +24,9 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="field"><label>{{ t('account.current_password') }}</label>
         <input name="current" type="password" autocomplete="current-password" required></div>
-      <div class="field"><label>{{ t('account.new_password_min', n=min_pw) }}</label>
-        <input name="new" type="password" autocomplete="new-password" required></div>
+      <div class="field"><label>{{ t('account.new_password_min', n=pw_min) }}</label>
+        <input name="new" type="password" autocomplete="new-password" required>
+        <span class="hint">{{ pw_rule }}</span></div>
       <div class="field"><label>{{ t('account.repeat_new_password') }}</label>
         <input name="new2" type="password" autocomplete="new-password" required></div>
       <button type="submit">{{ t('account.update') }}</button>
