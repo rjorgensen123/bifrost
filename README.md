@@ -1,4 +1,4 @@
-# Bifrost  (v2.5.3)
+# Bifrost  (v2.5.4)
 
 > **This repository is a mirror.** Development happens elsewhere and is pushed here;
 > every sync overwrites what is here, so a pull request cannot be merged and a commit
@@ -10,6 +10,8 @@ counters every 5 minutes, stores the raw counters in PostgreSQL with TimescaleDB
 when a graph is drawn. It shows how much traffic you exchange and with whom, where the network is
 congested, how it is connected logically (OSPF), and the highest traffic reached. It runs in three
 Docker containers and needs no online service.
+
+**New here?** Read the [quick start](docs/quick-start.md) first.
 
 Each interface gets a **role** (IX, PNI, CDN, transit, peering, customer, NNI, core, distribution) and a
 **counterparty**. A counterparty **with an ASN is Internet traffic**; one **without an ASN is
@@ -341,6 +343,7 @@ names stay the same.
 | File | What it is |
 |---|---|
 | [`docs/Home.md`](docs/Home.md) | The overview: what Bifrost is, the pages, maps, access and data, in plain language. |
+| [`docs/quick-start.md`](docs/quick-start.md) | The idea in a few lines: categories, which interfaces to choose, and the first steps. |
 | [`docs/bifrost-gui-oppskrift.md`](docs/bifrost-gui-oppskrift.md) | A recipe for the calm dashboard style used in Bifrost: the principles, design tokens, cards, segmented controls and uPlot charts. Written to be reused in other projects. |
 | [`docs/theme.example.css`](docs/theme.example.css) | A complete colour theme to copy, change and upload (see Branding above). |
 | [`docs/nginx.conf.example`](docs/nginx.conf.example) | nginx terminating HTTPS in front of Bifrost, at the root or under a path prefix. |

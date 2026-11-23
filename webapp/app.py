@@ -1,4 +1,4 @@
-# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.3
+# Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.4
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """bifrost web app: admin (config in Postgres) + view (graphs from TimescaleDB)."""
 import os
@@ -45,7 +45,7 @@ log = logging.getLogger("bifrost.app")
 
 # The current version, defined here and nowhere else. The footer, /about, /healthz and the
 # User-Agent toward tile servers and NetBox all read __version__; a new version changes only this line.
-__version__ = "2.5.3"
+__version__ = "2.5.4"
 APP_NAME = "Bifrost"
 
 import mapsources

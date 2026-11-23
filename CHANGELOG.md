@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.4 — Quick start (2026-11-23)
+
+- **Quick start:** `docs/quick-start.md` says in a few lines what Bifrost is built around — categories,
+  and traffic summed across the routers — and which interfaces to choose so that no traffic is counted
+  twice. The README and the overview link to it at the top.
+
 ## 2.5.3 — Custom period on the graph pages (2026-11-23)
 
 - **Custom period on the graph pages:** Internet, Backbone and History have a Custom button next to the

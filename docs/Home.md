@@ -5,6 +5,8 @@ the interface counters on your routers over SNMP every five minutes, stores them
 traffic goes: as graphs over time, as a picture of who you exchange traffic with, and as live maps of
 the network.
 
+**New here?** Read the [quick start](https://github.com/rjorgensen123/bifrost/blob/main/docs/quick-start.md) first.
+
 The idea is to have one place for the everyday questions, with no dependency on any online service:
 how much goes over paid transit compared with peering, how one customer or exchange point is
 developing, where the network is filling up, and which path traffic takes.
