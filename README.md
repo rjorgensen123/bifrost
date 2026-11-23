@@ -1,4 +1,4 @@
-# Bifrost  (v2.5.1)
+# Bifrost  (v2.5.2)
 
 > **This repository is a mirror.** Development happens elsewhere and is pushed here;
 > every sync overwrites what is here, so a pull request cannot be merged and a commit

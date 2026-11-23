@@ -1,4 +1,4 @@
-// Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.4.2
+// Bifrost. © Roger Jorgensen (rogerj@gmail.com). Last modified: v2.5.2
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /* G-184 (G-168 fase 3): fysisk kart-VISNING på den DELTE kart-kjernen
    (map_renderer.js). Adapter + glue for det fysiske kartet.
@@ -74,6 +74,14 @@
     if (util < 0.60) return CAP[1];
     if (util < 0.85) return CAP[2];
     return CAP[3];
+  }
+  // The line width shows the link's capacity in fixed steps (cap in bps); the colour shows the utilisation.
+  // A link below 10G, or with unknown capacity, gets the thinnest line.
+  function capWidth(cap) {
+    if (cap >= 100e9) return 8;
+    if (cap >= 40e9) return 6;
+    if (cap >= 10e9) return 4;
+    return 2;
   }
   const fmtCap = mbps => !mbps ? "" : (mbps >= 1000 ? (mbps / 1000) + "G" : mbps + "M");
   const ifn = row => row ? (row.if_name || ("if" + (row.if_index || ""))) : "?";
@@ -248,7 +256,7 @@
       info = `<b>${esc(end.title)}</b><br>${i18n.t("js.physical.no_fresh_data")}`;
     } else {
       const util = end.cap ? end.rate / end.cap : 0;
-      w = 2 + (end.cap ? Math.sqrt(Math.min(util, 1)) * 9 : 1);
+      w = capWidth(end.cap);
       stroke = color(util, end.cap); op = 0.75;
       const pct = end.cap ? ` (${(util * 100).toFixed(0)}%)` : " (" + i18n.t("js.physical.unknown_cap") + ")";
       info = `<b>${esc(end.title)}</b><br>${esc(end.dir)}: ${fmtBps(end.rate)}${pct}`;

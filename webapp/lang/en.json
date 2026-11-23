@@ -621,7 +621,7 @@
   "maps.rename_prompt": "New map name:",
   "maps.rename_failed": "Could not rename the map.",
   "common.network_error": "Network error — try again.",
-  "mapview.sub": "live view · colour = utilisation · hover over a link",
+  "mapview.sub": "live view · colour = utilisation · width = capacity · hover over a link",
   "mapview.unknown_cap": "unknown cap.",
   "mapview.public_link": "Public link (map only, refreshes by itself):",
   "mapview.time_title": "Step back in time and see the load",

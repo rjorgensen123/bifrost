@@ -621,7 +621,7 @@
   "maps.rename_prompt": "Nytt kartnavn:",
   "maps.rename_failed": "Kunne ikke endre navnet.",
   "common.network_error": "Nettverksfeil — prøv igjen.",
-  "mapview.sub": "live presentasjon · farge = utnyttelse · hold musa over en link",
+  "mapview.sub": "live presentasjon · farge = utnyttelse · tykkelse = kapasitet · hold musa over en link",
   "mapview.unknown_cap": "ukjent kap.",
   "mapview.public_link": "Public link (kart-only, auto-refresh):",
   "mapview.time_title": "Bla tilbake i tid og se belastningen",

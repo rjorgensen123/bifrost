@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.2 — Link width on the physical map shows capacity (2026-11-23)
+
+- **Link width shows capacity on the physical map:** the width of a link follows its capacity in fixed
+  steps — 2 px below 10G, 4 px from 10G, 6 px from 40G and 8 px from 100G — instead of its utilisation.
+  The colour still shows utilisation, and the map subtitle says what each one means.
+
 ## 2.5.1 — Python packages updated for published vulnerabilities (2026-11-23)
 
 - **Python packages updated:** Pillow 13.0.0 (from 12.3.0), certifi 2026.10.18 (from 2026.7.22), pyasn1
